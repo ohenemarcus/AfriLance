@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm run build && pnpm run start",
+    "dev": "pnpm run build && pnpm run start:local",
     "build": "node ./build.mjs",
     "start": "node -r dotenv/config --enable-source-maps ./dist/index.mjs",
+    "start:local": "node --env-file-if-exists=.env --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
