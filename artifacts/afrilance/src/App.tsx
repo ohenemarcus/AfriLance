@@ -316,6 +316,7 @@ function ClerkProviderWithRoutes() {
     <ClerkProvider
       localization={localization}
       publishableKey={clerkPubKey}
+      proxyUrl={`${window.location.origin}${basePath}/api/__clerk`}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
