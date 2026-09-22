@@ -6,6 +6,10 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/__clerk/:path*",
+      "destination": "https://frontend-api.clerk.dev/:path*"
+    },
+    {
       "source": "/api",
       "destination": "https://afrilance-js3k.onrender.com/api"
     },
