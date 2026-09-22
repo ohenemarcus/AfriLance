@@ -47,6 +47,7 @@ if (import.meta.env.VITE_API_BASE_URL) {
 }
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const clerkProxyUrl = `${window.location.protocol}//${window.location.host.replace(/\.$/, "")}${basePath}/api/__clerk`;
 
 // Look for the env key first. If it's missing, fall back to empty string so it doesn't crash the compiler.
 const rawKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
@@ -316,7 +317,7 @@ function ClerkProviderWithRoutes() {
     <ClerkProvider
       localization={localization}
       publishableKey={clerkPubKey}
-      proxyUrl={`${basePath}/api/__clerk`}
+      proxyUrl={clerkProxyUrl}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
