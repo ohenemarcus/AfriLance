@@ -313,7 +313,7 @@ function ClerkProviderWithRoutes() {
     <ClerkProvider
       localization={localization}
       publishableKey={clerkPubKey}
-      clerkJSUrl="/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+      proxyUrl="/__clerk"
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
