@@ -13,7 +13,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate, formatRelative } from "@/lib/format";
-import { useUser } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 declare global {
   interface Window {
@@ -243,6 +244,7 @@ function VerifyBadge({ state, name, error }: { state: VerifyState; name: string;
 export default function PaymentsPage() {
   const queryClient = useQueryClient();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const paystackPublicKey = usePaystackPublicKey();
   const paystackReady = usePaystackScript();
 
@@ -263,6 +265,14 @@ export default function PaymentsPage() {
   const [releaseError, setReleaseError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState("");
+  const [disputePayment, setDisputePayment] = useState<any | null>(null);
+  const [disputeForm, setDisputeForm] = useState({ reason: "", description: "", requestedAmount: "" });
+  const [disputeFiles, setDisputeFiles] = useState<File[]>([]);
+  const [disputeError, setDisputeError] = useState("");
+  const [disputeSaving, setDisputeSaving] = useState(false);
+  const [historyPayment, setHistoryPayment] = useState<number | null>(null);
+  const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  const { uploadFile } = useFileUpload({ maxSizeMB: 10, accept: ["image/", "application/pdf", "text/"] });
 
   const banks = banksData?.banks ?? [];
   const isMoMo = selectedBank?.type === "mobile_money";
@@ -366,6 +376,57 @@ export default function PaymentsPage() {
   const totalReleased = data?.payments.filter((p) => p.status === "released").reduce((s, p) => s + p.amount, 0) ?? 0;
 
   const canRelease = !!selectedBank && !!releaseForm.accountName && (acctState === "verified" || acctState === "idle");
+
+  const apiRequest = async (path: string, init: RequestInit = {}) => {
+    const token = await getToken();
+    const headers = new Headers(init.headers);
+    headers.set("Content-Type", "application/json");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(path, { ...init, headers });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error ?? "Request failed");
+    return body;
+  };
+
+  const handleOpenDispute = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!disputePayment) return;
+    setDisputeSaving(true);
+    setDisputeError("");
+    try {
+      const requestedAmount = Number(disputeForm.requestedAmount);
+      const dispute = await apiRequest(`/api/payments/${disputePayment.id}/disputes`, {
+        method: "POST",
+        body: JSON.stringify({ ...disputeForm, requestedAmount }),
+      });
+      for (const file of disputeFiles) {
+        const objectPath = await uploadFile(file);
+        if (objectPath) {
+          await apiRequest(`/api/disputes/${dispute.id}/evidence`, {
+            method: "POST",
+            body: JSON.stringify({ objectPath, fileName: file.name, contentType: file.type || "application/octet-stream" }),
+          });
+        }
+      }
+      setDisputePayment(null);
+      setDisputeFiles([]);
+      setDisputeForm({ reason: "", description: "", requestedAmount: "" });
+      queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey() });
+    } catch (error) {
+      setDisputeError(error instanceof Error ? error.message : "Could not open dispute");
+    } finally {
+      setDisputeSaving(false);
+    }
+  };
+
+  const handleHistory = async (paymentId: number) => {
+    if (historyPayment === paymentId) { setHistoryPayment(null); return; }
+    try {
+      const body = await apiRequest(`/api/payments/${paymentId}/status-history`);
+      setStatusHistory(body.history ?? []);
+      setHistoryPayment(paymentId);
+    } catch { setStatusHistory([]); }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -492,11 +553,32 @@ export default function PaymentsPage() {
                       Verify Payment
                     </button>
                   )}
+                  {p.status === "escrowed" && (
+                    <button
+                      onClick={() => { setDisputePayment(p); setDisputeForm({ reason: "", description: "", requestedAmount: String(p.amount) }); setDisputeError(""); }}
+                      className="mt-2 block text-xs px-3 py-1.5 border border-destructive/40 text-destructive rounded-lg hover:bg-destructive/10 font-medium"
+                    >
+                      Open dispute
+                    </button>
+                  )}
+                  <button onClick={() => handleHistory(p.id)} className="mt-2 block text-xs text-muted-foreground hover:text-foreground underline">
+                    {historyPayment === p.id ? "Hide status history" : "Payment status history"}
+                  </button>
                   {p.paystackTransferCode && (
                     <div className="mt-1 text-xs text-green-600 font-medium">Transfer sent ✓</div>
                   )}
                 </div>
               </div>
+              {historyPayment === p.id && (
+                <div className="mt-3 border-t border-border pt-3 space-y-2">
+                  {statusHistory.length ? statusHistory.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs">
+                      <span className="font-medium capitalize text-foreground">{item.status.replaceAll("_", " ")}</span>
+                      <span className="text-muted-foreground">{item.note ?? ""} · {formatDate(item.createdAt)}</span>
+                    </div>
+                  )) : <p className="text-xs text-muted-foreground">No status history recorded yet.</p>}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -679,6 +761,49 @@ export default function PaymentsPage() {
                 >
                   {releasing ? "Transferring..." : `Release to ${isMoMo ? "MoMo" : "Bank"}`}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {disputePayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-foreground">Open payment dispute</h2>
+              <button onClick={() => setDisputePayment(null)} className="text-muted-foreground hover:text-foreground" aria-label="Close dispute dialog">×</button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Payment #{disputePayment.id} · {formatCurrency(disputePayment.amount)} held in escrow</p>
+            <form onSubmit={handleOpenDispute} className="space-y-4">
+              {disputeError && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{disputeError}</div>}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Reason *</label>
+                <select required value={disputeForm.reason} onChange={(e) => setDisputeForm((f) => ({ ...f, reason: e.target.value }))} className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm">
+                  <option value="">Choose a reason</option>
+                  <option value="Work not delivered">Work not delivered</option>
+                  <option value="Work does not match agreement">Work does not match agreement</option>
+                  <option value="Payment or communication issue">Payment or communication issue</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Explain the dispute *</label>
+                <textarea required minLength={10} value={disputeForm.description} onChange={(e) => setDisputeForm((f) => ({ ...f, description: e.target.value }))} rows={4} className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm" placeholder="Describe what happened and what resolution you are requesting." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Requested refund amount (GHS) *</label>
+                <input required type="number" min="0.01" max={disputePayment.amount} step="0.01" value={disputeForm.requestedAmount} onChange={(e) => setDisputeForm((f) => ({ ...f, requestedAmount: e.target.value }))} className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm" />
+                <p className="text-xs text-muted-foreground mt-1">You may request a partial or full refund.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Evidence or attachments</label>
+                <input type="file" multiple accept="image/*,.pdf,.txt" onChange={(e) => setDisputeFiles(Array.from(e.target.files ?? []))} className="w-full text-sm text-muted-foreground" />
+                {!!disputeFiles.length && <p className="text-xs text-muted-foreground mt-1">{disputeFiles.length} file(s) selected, up to 10MB each.</p>}
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setDisputePayment(null)} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted">Cancel</button>
+                <button type="submit" disabled={disputeSaving} className="flex-1 py-2.5 bg-destructive text-destructive-foreground rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50">{disputeSaving ? "Submitting..." : "Submit dispute"}</button>
               </div>
             </form>
           </div>

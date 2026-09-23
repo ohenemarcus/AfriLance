@@ -11,6 +11,7 @@ import reviewsRouter from "./reviews";
 import dashboardRouter from "./dashboard";
 import paymentsRouter from "./payments";
 import adminRouter from "./admin";
+import disputesRouter from "./disputes";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(reviewsRouter);
 router.use(dashboardRouter);
 router.use(paymentsRouter);
 router.use(adminRouter);
+router.use(disputesRouter);
 
 export default router;

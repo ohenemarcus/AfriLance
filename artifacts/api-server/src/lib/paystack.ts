@@ -52,6 +52,13 @@ export async function verifyTransaction(reference: string): Promise<{
   };
 }
 
+export async function refundTransaction(params: { reference: string; amount?: number }): Promise<void> {
+  await paystackApi.post("/refund", {
+    transaction: params.reference,
+    ...(params.amount ? { amount: Math.round(params.amount * 100) } : {}),
+  });
+}
+
 export async function createTransferRecipient(params: {
   name: string;
   accountNumber: string;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
-import { db, paymentsTable } from "@workspace/db";
+import { db, paymentStatusHistoryTable, paymentsTable } from "@workspace/db";
 import { verifyWebhookSignature } from "../lib/paystack";
 
 const router = Router();
@@ -29,6 +29,7 @@ router.post("/", async (req, res): Promise<void> => {
           .update(paymentsTable)
           .set({ status: "escrowed", updatedAt: new Date() })
           .where(eq(paymentsTable.id, payment.id));
+        await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "escrowed", note: "Payment confirmed by Paystack webhook" });
       }
     }
   }

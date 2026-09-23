@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useGetAdminStats,
   useAdminListUsers,
@@ -18,8 +18,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { formatRelative, formatCurrency } from "@/lib/format";
+import { useAuth } from "@clerk/react";
 
-type Tab = "overview" | "users" | "jobs" | "audit";
+type Tab = "overview" | "users" | "jobs" | "disputes" | "audit";
+type AdminDispute = {
+  id: number;
+  reason: string;
+  description: string;
+  requestedAmount: number;
+  status: string;
+  decisionNotes?: string | null;
+  payment?: { id: number; amount: number; status: string; jobId: number };
+  jobTitle?: string | null;
+  evidence: Array<{ id: number; objectPath: string; fileName: string }>;
+  createdAt: string;
+};
 
 function StatCard({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
   return (
@@ -44,6 +57,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
+  const { getToken } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
   const [userSearch, setUserSearch] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -51,6 +65,10 @@ export default function AdminPage() {
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [auditAction, setAuditAction] = useState("");
   const [auditEntity, setAuditEntity] = useState("");
+  const [disputes, setDisputes] = useState<AdminDispute[]>([]);
+  const [disputesLoading, setDisputesLoading] = useState(false);
+  const [disputeDecision, setDisputeDecision] = useState<Record<number, { decision: string; amount: string; notes: string }>>({});
+  const [disputeError, setDisputeError] = useState("");
 
   const { data: stats, isLoading: statsLoading } = useGetAdminStats({
     query: { queryKey: getGetAdminStatsQueryKey() },
@@ -87,6 +105,37 @@ export default function AdminPage() {
   const { mutate: flagJob } = useAdminFlagJob();
   const { mutate: verifyUser } = useAdminVerifyUser();
   const { mutate: changeRole } = useAdminChangeUserRole();
+
+  useEffect(() => {
+    if (tab !== "disputes") return;
+    setDisputesLoading(true);
+    getToken().then((token) => fetch("/api/admin/disputes", { headers: token ? { Authorization: `Bearer ${token}` } : {} }))
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? "Could not load disputes");
+        setDisputes(body.disputes ?? []);
+      })
+      .catch((error) => setDisputeError(error instanceof Error ? error.message : "Could not load disputes"))
+      .finally(() => setDisputesLoading(false));
+  }, [tab, getToken]);
+
+  const submitDisputeDecision = async (dispute: AdminDispute) => {
+    const form = disputeDecision[dispute.id] ?? { decision: "refund_full", amount: String(dispute.requestedAmount), notes: "" };
+    setDisputeError("");
+    try {
+      const token = await getToken();
+      const response = await fetch(`/api/admin/disputes/${dispute.id}/decision`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ decision: form.decision, refundAmount: form.decision === "refund_partial" ? Number(form.amount) : undefined, decisionNotes: form.notes }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not save decision");
+      setDisputes((items) => items.map((item) => item.id === dispute.id ? body : item));
+    } catch (error) {
+      setDisputeError(error instanceof Error ? error.message : "Could not save decision");
+    }
+  };
 
   const handleBlock = (id: number, isBlocked: boolean) => {
     blockUser(
@@ -165,6 +214,7 @@ export default function AdminPage() {
     { key: "overview", label: "Overview" },
     { key: "users", label: "Users" },
     { key: "jobs", label: "Jobs" },
+    { key: "disputes", label: "Disputes" },
     { key: "audit", label: "Audit Log" },
   ];
 
@@ -526,6 +576,56 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Disputes Tab */}
+        {tab === "disputes" && (
+          <div className="space-y-4">
+            {disputeError && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{disputeError}</div>}
+            {disputesLoading ? (
+              <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}</div>
+            ) : !disputes.length ? (
+              <div className="text-center py-16 bg-card border border-border rounded-xl"><p className="text-muted-foreground font-medium">No disputes to review</p></div>
+            ) : (
+              disputes.map((dispute) => {
+                const form = disputeDecision[dispute.id] ?? { decision: "refund_full", amount: String(dispute.requestedAmount), notes: "" };
+                const setForm = (patch: Partial<typeof form>) => setDisputeDecision((current) => ({ ...current, [dispute.id]: { ...form, ...patch } }));
+                return (
+                  <div key={dispute.id} className="bg-card border border-border rounded-xl p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-foreground">{dispute.jobTitle ?? `Job #${dispute.payment?.jobId ?? "?"}`}</h3>
+                          <StatusBadge status={dispute.status} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Payment #{dispute.payment?.id} · Opened {formatRelative(dispute.createdAt)}</p>
+                      </div>
+                      <div className="text-right"><div className="font-bold text-primary">{formatCurrency(dispute.payment?.amount ?? 0)}</div><div className="text-xs text-muted-foreground">Requested: {formatCurrency(dispute.requestedAmount)}</div></div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-3 text-sm">
+                      <div><span className="font-medium text-foreground">Reason:</span> <span className="text-muted-foreground">{dispute.reason}</span></div>
+                      <p className="md:col-span-2 text-muted-foreground whitespace-pre-wrap">{dispute.description}</p>
+                    </div>
+                    {!!dispute.evidence.length && (
+                      <div className="flex flex-wrap gap-2">
+                        {dispute.evidence.map((file) => <a key={file.id} href={`/api/storage${file.objectPath}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Evidence: {file.fileName}</a>)}
+                      </div>
+                    )}
+                    {dispute.status === "open" || dispute.status === "under_review" ? (
+                      <div className="border-t border-border pt-4 grid md:grid-cols-[1fr_1fr_2fr_auto] gap-3 items-end">
+                        <label className="text-xs font-medium text-foreground">Decision<select value={form.decision} onChange={(e) => setForm({ decision: e.target.value })} className="mt-1 w-full px-2.5 py-2 bg-background border border-border rounded-lg text-sm"><option value="refund_full">Full refund</option><option value="refund_partial">Partial refund</option><option value="reject">Reject dispute</option></select></label>
+                        <label className="text-xs font-medium text-foreground">Partial amount<input type="number" min="0.01" max={dispute.payment?.amount} step="0.01" disabled={form.decision !== "refund_partial"} value={form.amount} onChange={(e) => setForm({ amount: e.target.value })} className="mt-1 w-full px-2.5 py-2 bg-background border border-border rounded-lg text-sm disabled:opacity-50" /></label>
+                        <label className="text-xs font-medium text-foreground">Decision notes<textarea required rows={2} value={form.notes} onChange={(e) => setForm({ notes: e.target.value })} className="mt-1 w-full px-2.5 py-2 bg-background border border-border rounded-lg text-sm" placeholder="Explain the decision for both parties." /></label>
+                        <button onClick={() => submitDisputeDecision(dispute)} disabled={!form.notes.trim()} className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Apply decision</button>
+                      </div>
+                    ) : (
+                      <div className="border-t border-border pt-3 text-sm text-muted-foreground"><span className="font-medium text-foreground">Decision notes:</span> {dispute.decisionNotes ?? "No notes"}</div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

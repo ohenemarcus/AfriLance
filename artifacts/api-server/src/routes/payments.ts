@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, or, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, paymentsTable, profilesTable, jobsTable, notificationsTable } from "@workspace/db";
+import { db, paymentsTable, paymentStatusHistoryTable, profilesTable, jobsTable, notificationsTable } from "@workspace/db";
 import { z } from "zod";
 import {
   initializeTransaction,
@@ -110,6 +110,7 @@ router.post("/payments", async (req, res): Promise<void> => {
       paystackReference: reference,
     })
     .returning();
+  await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "pending", note: "Payment initialized" });
 
   try {
     const txn = await initializeTransaction({
@@ -175,6 +176,7 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
       .set({ status: "escrowed", updatedAt: new Date() })
       .where(eq(paymentsTable.id, payment.id))
       .returning();
+    await db.insert(paymentStatusHistoryTable).values({ paymentId: updated.id, status: "escrowed", note: "Payment verified and placed in escrow", changedBy: payment.clientId });
 
     const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, updated.jobId));
     const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, updated.freelancerId));
@@ -270,6 +272,7 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
       })
       .where(eq(paymentsTable.id, id))
       .returning();
+    await db.insert(paymentStatusHistoryTable).values({ paymentId: updated.id, status: "released", note: "Escrow released to freelancer", changedBy: profile.id });
 
     const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, updated.jobId));
     const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, updated.freelancerId));
