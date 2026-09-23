@@ -181,12 +181,22 @@ function SignInPage() {
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
-      <SignUp
-        routing="path"
-        path={`${basePath}/sign-up`}
-        signInUrl={`${basePath}/sign-in`}
-        fallbackRedirectUrl={`${basePath}/onboarding`}
-      />
+      <div className="w-full max-w-md space-y-4">
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
+          <p className="font-semibold">Password requirements</p>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            <li>Use at least one capital letter</li>
+            <li>Use at least one number</li>
+            <li>Use at least one special character, such as !, @, or #</li>
+          </ul>
+        </div>
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+          fallbackRedirectUrl={`${basePath}/onboarding`}
+        />
+      </div>
     </div>
   );
 }
