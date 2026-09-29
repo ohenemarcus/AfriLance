@@ -1,0 +1,16 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark green background -->
+  <rect width="32" height="32" rx="6" fill="#0F5132"/>
+
+  <!-- Left leg of A (white) -->
+  <path d="M4 28 L13 4 L17 4 L8 28 Z" fill="white"/>
+
+  <!-- Right leg of A (white) -->
+  <path d="M15 4 L19 4 L28 28 L24 28 Z" fill="white"/>
+
+  <!-- Orange triangle at bottom between legs -->
+  <polygon points="16,20 22,28 10,28" fill="#FF7A00"/>
+
+  <!-- Africa shape in gold -->
+  <path d="M13.5 8 C14.5 5 18 5 19 9 C20.5 13 19.5 18 17 19.5 C15 20.5 12.5 18 11.5 14 C10.5 10 12 9.5 13.5 8 Z" fill="#F4B40F"/>
+</svg>

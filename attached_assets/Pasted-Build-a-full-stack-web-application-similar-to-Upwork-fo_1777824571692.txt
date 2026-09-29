@@ -1,0 +1,102 @@
+Build a full-stack web application similar to Upwork, focused on freelancers and clients in Ghana and across Africa.
+
+Project name: "AfriLance"
+
+Core goal:
+Create a platform where African freelancers can find remote work, showcase their skills, and get paid securely, helping reduce youth unemployment.
+
+Tech requirements:
+
+* Use Next.js 13+ with the App Router for both frontend and backend (API routes and server actions)
+* Use Supabase for authentication, database, storage, and real-time features (chat, notifications)
+* Use Tailwind CSS for styling
+* Ensure a deploy-ready structure optimized for Vercel or Cloudflare Pages
+
+User roles:
+
+* Freelancer
+* Client (employer)
+* Admin (platform management and moderation)
+
+Authentication:
+
+* Email/password signup and login (via Supabase Auth)
+* User profile creation after signup with role selection (freelancer or client)
+
+Freelancer features:
+
+* Create and edit profile (name, bio, skills, hourly rate, location, portfolio)
+* Upload portfolio items (images/projects) 
+* Browse and search job listings with filters (category, budget, skills, location, remote)
+* Apply to jobs with proposals (cover letter, bid amount, optional attachments)
+* View and track application status (submitted, under review, accepted, rejected)
+
+Client features:
+
+* Post jobs (title, description, budget, category, skills required, deadline, status)
+* View freelancer profiles
+* Receive and manage proposals (accept/reject)
+* Message freelancers directly from proposals or job pages
+
+Core features:
+
+* Job listing feed with advanced filters (category, budget, skills, location, remote)
+* Proposal system with status tracking
+* Messaging system with basic real-time chat (Supabase real-time)
+* Dashboards for freelancers and clients
+* Notification system (in-app, real-time updates for messages, proposals, job status)
+* Real-time updates for job listings, proposals, and statuses without page refresh
+
+Database schema:
+Include tables for:
+
+* users
+* profiles
+* jobs (with fields like status: open, in progress, closed; category; deadline)
+* proposals (with status: submitted, under review, accepted, rejected)
+* messages
+* reviews/ratings
+* notifications
+
+UI/UX:
+
+* Clean, modern SaaS design
+* Fully mobile responsive
+* African-inspired color palette (greens, gold, neutral tones)
+* Simple onboarding flow
+* Use reusable components and consistent spacing/typography system
+
+Payments (MVP placeholder):
+
+* Implement a mock payment system to simulate transactions
+* Structure the system for future integration with Stripe or Paystack
+* Design with a future escrow-like system in mind (funds held until job completion)
+
+Admin features:
+
+* Admin dashboard to manage users (view, block, delete)
+* Moderate job listings and proposals
+* Handle flagged or inappropriate content
+
+Extra features (if possible):
+
+* Rating and review system after job completion
+* Featured freelancers section
+* Optional PWA support for app-like experience
+
+Code quality and structure:
+
+* Generate clean, modular, and production-ready code
+* Use proper folder structure (app/, components/, lib/, etc.)
+* Include comments explaining key logic
+* Follow best practices for scalability and maintainability
+
+Output requirements:
+
+* Full working codebase
+* Clear and organized folder structure
+* Step-by-step setup guide in README
+* Ensure the app runs locally after installation
+
+Important:
+Focus on building a solid MVP first, but structure the code so it can scale into a production-ready SaaS platform.

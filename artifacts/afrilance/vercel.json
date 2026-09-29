@@ -1,0 +1,25 @@
+
+{
+  "buildCommand": "cd ../.. && pnpm --filter @workspace/api-spec run codegen && pnpm --filter @workspace/afrilance run build",
+  "outputDirectory": "dist/public",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/__clerk/:path*",
+      "destination": "https://afrilance-js3k.onrender.com/api/__clerk/:path*"
+    },
+    {
+      "source": "/api",
+      "destination": "https://afrilance-js3k.onrender.com/api"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://afrilance-js3k.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
