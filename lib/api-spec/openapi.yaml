@@ -432,6 +432,77 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageListResponse"
 
+  /messages/conversations/{conversationId}/typing:
+    get:
+      operationId: getConversationTyping
+      tags: [messages]
+      summary: Check whether another participant is typing
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Typing state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypingStatus"
+    post:
+      operationId: updateConversationTyping
+      tags: [messages]
+      summary: Update current participant typing state
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isTyping:
+                  type: boolean
+              required: [isTyping]
+      responses:
+        "204":
+          description: Typing state updated
+
+  /messages/{messageId}/reports:
+    post:
+      operationId: reportMessage
+      tags: [messages]
+      summary: Report a message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportMessageBody"
+      responses:
+        "201":
+          description: Message report submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reported:
+                    type: boolean
+                required: [reported]
+
   /messages:
     post:
       operationId: sendMessage
@@ -1351,6 +1422,12 @@ components:
           type: integer
         content:
           type: string
+        attachmentUrl:
+          type: [string, "null"]
+        attachmentName:
+          type: [string, "null"]
+        attachmentType:
+          type: [string, "null"]
         isRead:
           type: boolean
         createdAt:
@@ -1360,6 +1437,9 @@ components:
         - conversationId
         - senderId
         - content
+        - attachmentUrl
+        - attachmentName
+        - attachmentType
         - isRead
         - createdAt
 
@@ -1383,9 +1463,33 @@ components:
           type: integer
         content:
           type: string
+        attachmentUrl:
+          type: string
+        attachmentName:
+          type: string
+        attachmentType:
+          type: string
       required:
         - recipientId
         - content
+
+    TypingStatus:
+      type: object
+      properties:
+        isTyping:
+          type: boolean
+      required: [isTyping]
+
+    ReportMessageBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 120
+        details:
+          type: string
+          maxLength: 1000
+      required: [reason]
 
     Notification:
       type: object

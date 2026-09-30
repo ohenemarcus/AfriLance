@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { eq, and, or, sql, desc } from "drizzle-orm";
+import { eq, and, or, sql, desc, ne } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, conversationsTable, messagesTable, profilesTable, notificationsTable } from "@workspace/db";
+import { Readable } from "stream";
+import { db, conversationsTable, messagesTable, messageReportsTable, profilesTable, notificationsTable } from "@workspace/db";
+import { ObjectStorageService } from "../lib/objectStorage";
 import {
   GetConversationMessagesParams,
   GetConversationMessagesQueryParams,
@@ -9,6 +11,9 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
+const typingByConversation = new Map<number, Map<number, number>>();
+const TYPING_TTL_MS = 5_000;
 
 async function requireProfile(userId: string) {
   const [profile] = await db
@@ -17,6 +22,61 @@ async function requireProfile(userId: string) {
     .where(eq(profilesTable.userId, userId));
   return profile;
 }
+
+router.get("/messages/:messageId/attachment", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const profile = auth?.userId ? await requireProfile(auth.userId) : null;
+  const messageId = Number(req.params.messageId);
+  if (!profile || !Number.isInteger(messageId) || messageId <= 0) {
+    res.status(profile ? 400 : 401).json({ error: "Invalid attachment request" });
+    return;
+  }
+
+  const [message] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
+  if (!message?.attachmentUrl) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, message.conversationId));
+  if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+
+  const localId = message.attachmentUrl.match(/^\/api\/storage\/local-objects\/([0-9a-f-]{36})$/i)?.[1];
+  if (localId) {
+    const object = await objectStorageService.readLocalUpload(localId);
+    if (!object) {
+      res.status(404).json({ error: "Attachment not found" });
+      return;
+    }
+    res.setHeader("Content-Type", object.contentType);
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(message.attachmentName ?? "attachment")}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(object.data);
+    return;
+  }
+
+  if (!message.attachmentUrl.startsWith("/objects/")) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+  try {
+    const file = await objectStorageService.getObjectEntityFile(message.attachmentUrl);
+    const response = await objectStorageService.downloadObject(file, 0);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(message.attachmentName ?? "attachment")}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    if (response.body) Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(res);
+    else res.end();
+  } catch {
+    res.status(404).json({ error: "Attachment not found" });
+  }
+});
 
 // GET /messages/conversations
 router.get("/messages/conversations", async (req, res): Promise<void> => {
@@ -102,6 +162,31 @@ router.get("/messages/conversations/:conversationId", async (req, res): Promise<
 
   const { limit = 50, offset = 0 } = query.data;
 
+  const profile = await requireProfile(userId);
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, params.data.conversationId));
+  if (
+    !profile ||
+    !conversation ||
+    (conversation.participantA !== profile.id && conversation.participantB !== profile.id)
+  ) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  await db
+    .update(messagesTable)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(messagesTable.conversationId, conversation.id),
+        ne(messagesTable.senderId, profile.id),
+        eq(messagesTable.isRead, false),
+      ),
+    );
+
   const messages = await db
     .select()
     .from(messagesTable)
@@ -136,6 +221,17 @@ router.post("/messages", async (req, res): Promise<void> => {
   const parsed = SendMessageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const hasAttachment = Boolean(parsed.data.attachmentUrl);
+  if (
+    (!parsed.data.content.trim() && !hasAttachment) ||
+    parsed.data.content.length > 5000 ||
+    (parsed.data.attachmentUrl && !/^\/(objects\/|api\/storage\/local-objects\/)/.test(parsed.data.attachmentUrl)) ||
+    (parsed.data.attachmentName && parsed.data.attachmentName.length > 255) ||
+    (parsed.data.attachmentType && parsed.data.attachmentType.length > 120)
+  ) {
+    res.status(400).json({ error: "Invalid message or attachment" });
     return;
   }
 
@@ -174,13 +270,19 @@ router.post("/messages", async (req, res): Promise<void> => {
       conversationId: conversation.id,
       senderId: profile.id,
       content: parsed.data.content,
+      attachmentUrl: parsed.data.attachmentUrl ?? null,
+      attachmentName: parsed.data.attachmentName ?? null,
+      attachmentType: parsed.data.attachmentType ?? null,
     })
     .returning();
 
   // Update last message on conversation
   await db
     .update(conversationsTable)
-    .set({ lastMessage: parsed.data.content, lastMessageAt: new Date() })
+    .set({
+      lastMessage: parsed.data.content || `Attachment: ${parsed.data.attachmentName ?? "file"}`,
+      lastMessageAt: new Date(),
+    })
     .where(eq(conversationsTable.id, conversation.id));
 
   // Notify recipient of new message
@@ -203,13 +305,95 @@ router.post("/messages", async (req, res): Promise<void> => {
       userId: parsed.data.recipientId,
       type: "new_message",
       title: "New message",
-      body: `${profile.name} sent you a message: "${parsed.data.content.slice(0, 80)}${parsed.data.content.length > 80 ? "…" : ""}"`,
+      body: parsed.data.content
+        ? `${profile.name} sent you a message: "${parsed.data.content.slice(0, 80)}${parsed.data.content.length > 80 ? "…" : ""}"`
+        : `${profile.name} sent you an attachment: ${parsed.data.attachmentName ?? "file"}`,
       relatedId: conversation.id,
       relatedType: "conversation",
     });
   }
 
   res.status(201).json(message);
+});
+
+router.get("/messages/conversations/:conversationId/typing", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const profile = auth?.userId ? await requireProfile(auth.userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, conversationId));
+  if (!profile || !conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const states = typingByConversation.get(conversationId);
+  const now = Date.now();
+  for (const [profileId, updatedAt] of states ?? []) {
+    if (now - updatedAt > TYPING_TTL_MS) states?.delete(profileId);
+  }
+  res.json({ isTyping: [...(states?.entries() ?? [])].some(([profileId]) => profileId !== profile.id) });
+});
+
+router.post("/messages/conversations/:conversationId/typing", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const profile = auth?.userId ? await requireProfile(auth.userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, conversationId));
+  if (!profile || !conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const states = typingByConversation.get(conversationId) ?? new Map<number, number>();
+  if (req.body?.isTyping === true) states.set(profile.id, Date.now());
+  else states.delete(profile.id);
+  if (states.size) typingByConversation.set(conversationId, states);
+  else typingByConversation.delete(conversationId);
+  res.status(204).end();
+});
+
+router.post("/messages/:messageId/reports", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const profile = auth?.userId ? await requireProfile(auth.userId) : null;
+  const messageId = Number(req.params.messageId);
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const details = typeof req.body?.details === "string" ? req.body.details.trim() : "";
+  if (!profile || !Number.isInteger(messageId) || messageId <= 0 || !reason || reason.length > 120 || details.length > 1000) {
+    res.status(profile ? 400 : 401).json({ error: "Invalid report" });
+    return;
+  }
+
+  const [message] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
+  if (!message) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, message.conversationId));
+  if (
+    !conversation ||
+    message.senderId === profile.id ||
+    ![conversation.participantA, conversation.participantB].includes(profile.id)
+  ) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  await db.insert(messageReportsTable).values({
+    messageId,
+    reporterId: profile.id,
+    reason,
+    details: details || null,
+  });
+  res.status(201).json({ reported: true });
 });
 
 export default router;

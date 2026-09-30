@@ -62,7 +62,6 @@ export const UpsertMyProfileBody = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()).optional(),
   "hourlyRate": zod.number().nullish(),
-  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -150,7 +149,6 @@ export const GetProfileResponse = zod.object({
  * @summary List freelancer profiles with filters
  */
 export const ListFreelancersQueryParams = zod.object({
-  "category": zod.coerce.string().optional(),
   "skill": zod.coerce.string().optional(),
   "location": zod.coerce.string().optional(),
   "minRate": zod.coerce.number().optional(),
@@ -524,6 +522,9 @@ export const GetConversationMessagesResponse = zod.object({
   "conversationId": zod.number(),
   "senderId": zod.number(),
   "content": zod.string(),
+  "attachmentUrl": zod.string().nullable(),
+  "attachmentName": zod.string().nullable(),
+  "attachmentType": zod.string().nullable(),
   "isRead": zod.boolean(),
   "createdAt": zod.string()
 })),
@@ -532,11 +533,61 @@ export const GetConversationMessagesResponse = zod.object({
 
 
 /**
+ * @summary Check whether another participant is typing
+ */
+export const GetConversationTypingParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const GetConversationTypingResponse = zod.object({
+  "isTyping": zod.boolean()
+})
+
+
+/**
+ * @summary Update current participant typing state
+ */
+export const UpdateConversationTypingParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const UpdateConversationTypingBody = zod.object({
+  "isTyping": zod.boolean()
+})
+
+export const UpdateConversationTypingResponse = zod.void()
+
+
+/**
+ * @summary Report a message
+ */
+export const ReportMessageParams = zod.object({
+  "messageId": zod.coerce.number()
+})
+
+export const reportMessageBodyReasonMax = 120;
+
+export const reportMessageBodyDetailsMax = 1000;
+
+
+
+export const ReportMessageBody = zod.object({
+  "reason": zod.string().max(reportMessageBodyReasonMax),
+  "details": zod.string().max(reportMessageBodyDetailsMax).optional()
+})
+
+export const ReportMessageResponse = zod.void()
+
+
+/**
  * @summary Send a message
  */
 export const SendMessageBody = zod.object({
   "recipientId": zod.number(),
-  "content": zod.string()
+  "content": zod.string(),
+  "attachmentUrl": zod.string().optional(),
+  "attachmentName": zod.string().optional(),
+  "attachmentType": zod.string().optional()
 })
 
 export const SendMessageResponse = zod.void()

@@ -9,4 +9,7 @@
 export interface SendMessageBody {
   recipientId: number;
   content: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
 }

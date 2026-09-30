@@ -58,6 +58,8 @@ import type {
   Proposal,
   ProposalListResponse,
   ReleasePaymentBody,
+  ReportMessage201,
+  ReportMessageBody,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   ResolveAccountResponse,
@@ -68,6 +70,8 @@ import type {
   SavedJob,
   SavedJobListResponse,
   SendMessageBody,
+  TypingStatus,
+  UpdateConversationTypingBody,
   UpdateJobBody,
   UpdateProposalStatusBody,
   UpsertProfileBody
@@ -1456,6 +1460,225 @@ export function useGetConversationMessages<TData = Awaited<ReturnType<typeof get
 
 
 
+
+export const getGetConversationTypingUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/typing`
+}
+
+/**
+ * @summary Check whether another participant is typing
+ */
+export const getConversationTyping = async (conversationId: number, options?: RequestInit): Promise<TypingStatus> => {
+
+  return customFetch<TypingStatus>(getGetConversationTypingUrl(conversationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConversationTypingQueryKey = (conversationId: number,) => {
+    return [
+    `/api/messages/conversations/${conversationId}/typing`
+    ] as const;
+    }
+
+
+export const getGetConversationTypingQueryOptions = <TData = Awaited<ReturnType<typeof getConversationTyping>>, TError = ErrorType<unknown>>(conversationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationTyping>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConversationTypingQueryKey(conversationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConversationTyping>>> = ({ signal }) => getConversationTyping(conversationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: conversationId !== null && conversationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConversationTyping>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConversationTypingQueryResult = NonNullable<Awaited<ReturnType<typeof getConversationTyping>>>
+export type GetConversationTypingQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether another participant is typing
+ */
+
+export function useGetConversationTyping<TData = Awaited<ReturnType<typeof getConversationTyping>>, TError = ErrorType<unknown>>(
+ conversationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationTyping>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConversationTypingQueryOptions(conversationId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateConversationTypingUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/typing`
+}
+
+/**
+ * @summary Update current participant typing state
+ */
+export const updateConversationTyping = async (conversationId: number,
+    updateConversationTypingBody: UpdateConversationTypingBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getUpdateConversationTypingUrl(conversationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateConversationTypingBody)
+  }
+);}
+
+
+
+
+export const getUpdateConversationTypingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationTyping>>, TError,{conversationId: number;data: BodyType<UpdateConversationTypingBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateConversationTyping>>, TError,{conversationId: number;data: BodyType<UpdateConversationTypingBody>}, TContext> => {
+
+const mutationKey = ['updateConversationTyping'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateConversationTyping>>, {conversationId: number;data: BodyType<UpdateConversationTypingBody>}> = (props) => {
+          const {conversationId,data} = props ?? {};
+
+          return  updateConversationTyping(conversationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateConversationTypingMutationResult = NonNullable<Awaited<ReturnType<typeof updateConversationTyping>>>
+    export type UpdateConversationTypingMutationBody = BodyType<UpdateConversationTypingBody>
+    export type UpdateConversationTypingMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update current participant typing state
+ */
+export const useUpdateConversationTyping = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationTyping>>, TError,{conversationId: number;data: BodyType<UpdateConversationTypingBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateConversationTyping>>,
+        TError,
+        {conversationId: number;data: BodyType<UpdateConversationTypingBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateConversationTypingMutationOptions(options));
+    }
+
+export const getReportMessageUrl = (messageId: number,) => {
+
+
+
+
+  return `/api/messages/${messageId}/reports`
+}
+
+/**
+ * @summary Report a message
+ */
+export const reportMessage = async (messageId: number,
+    reportMessageBody: ReportMessageBody, options?: RequestInit): Promise<ReportMessage201> => {
+
+  return customFetch<ReportMessage201>(getReportMessageUrl(messageId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reportMessageBody)
+  }
+);}
+
+
+
+
+export const getReportMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportMessage>>, TError,{messageId: number;data: BodyType<ReportMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportMessage>>, TError,{messageId: number;data: BodyType<ReportMessageBody>}, TContext> => {
+
+const mutationKey = ['reportMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportMessage>>, {messageId: number;data: BodyType<ReportMessageBody>}> = (props) => {
+          const {messageId,data} = props ?? {};
+
+          return  reportMessage(messageId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportMessageMutationResult = NonNullable<Awaited<ReturnType<typeof reportMessage>>>
+    export type ReportMessageMutationBody = BodyType<ReportMessageBody>
+    export type ReportMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Report a message
+ */
+export const useReportMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportMessage>>, TError,{messageId: number;data: BodyType<ReportMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportMessage>>,
+        TError,
+        {messageId: number;data: BodyType<ReportMessageBody>},
+        TContext
+      > => {
+      return useMutation(getReportMessageMutationOptions(options));
+    }
 
 export const getSendMessageUrl = () => {
 

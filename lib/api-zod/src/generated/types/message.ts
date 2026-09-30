@@ -11,6 +11,12 @@ export interface Message {
   conversationId: number;
   senderId: number;
   content: string;
+  /** @nullable */
+  attachmentUrl: string | null;
+  /** @nullable */
+  attachmentName: string | null;
+  /** @nullable */
+  attachmentType: string | null;
   isRead: boolean;
   createdAt: string;
 }

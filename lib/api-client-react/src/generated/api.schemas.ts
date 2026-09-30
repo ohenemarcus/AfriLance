@@ -206,6 +206,12 @@ export interface Message {
   conversationId: number;
   senderId: number;
   content: string;
+  /** @nullable */
+  attachmentUrl: string | null;
+  /** @nullable */
+  attachmentName: string | null;
+  /** @nullable */
+  attachmentType: string | null;
   isRead: boolean;
   createdAt: string;
 }
@@ -218,6 +224,20 @@ export interface MessageListResponse {
 export interface SendMessageBody {
   recipientId: number;
   content: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+}
+
+export interface TypingStatus {
+  isTyping: boolean;
+}
+
+export interface ReportMessageBody {
+  /** @maxLength 120 */
+  reason: string;
+  /** @maxLength 1000 */
+  details?: string;
 }
 
 export interface Notification {
@@ -472,7 +492,6 @@ export interface AuditLogListResponse {
 }
 
 export type ListFreelancersParams = {
-category?: string;
 skill?: string;
 location?: string;
 minRate?: number;
@@ -519,6 +538,14 @@ export const ListJobsSortBy = {
 export type GetConversationMessagesParams = {
 limit?: number;
 offset?: number;
+};
+
+export type UpdateConversationTypingBody = {
+  isTyping: boolean;
+};
+
+export type ReportMessage201 = {
+  reported: boolean;
 };
 
 export type ListNotificationsParams = {

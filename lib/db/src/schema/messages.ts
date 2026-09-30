@@ -23,7 +23,19 @@ export const messagesTable = pgTable("messages", {
   conversationId: integer("conversation_id").notNull(),
   senderId: integer("sender_id").notNull(),
   content: text("content").notNull(),
+  attachmentUrl: text("attachment_url"),
+  attachmentName: text("attachment_name"),
+  attachmentType: text("attachment_type"),
   isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const messageReportsTable = pgTable("message_reports", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull(),
+  reporterId: integer("reporter_id").notNull(),
+  reason: text("reason").notNull(),
+  details: text("details"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
