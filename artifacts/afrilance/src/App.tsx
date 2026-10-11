@@ -56,8 +56,6 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables.");
 }
 
-const clerkProxyUrl = clerkPubKey.startsWith("pk_live_") ? "/__clerk" : undefined;
-
 // const clerkPubKey = publishableKeyFromHost(
 //   window.location.hostname,
 //   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
@@ -325,7 +323,7 @@ function ClerkProviderWithRoutes() {
     <ClerkProvider
       localization={localization}
       publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
+      proxyUrl="/api/__clerk"
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
