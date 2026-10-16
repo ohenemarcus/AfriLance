@@ -123,8 +123,8 @@ router.post("/proposals", async (req, res): Promise<void> => {
       type: "new_proposal",
       title: "New proposal received",
       body: `${profile.name} submitted a proposal for "${job.title}"`,
-      relatedId: proposal.id,
-      relatedType: "proposal",
+      relatedId: job.id,
+      relatedType: "job",
     });
   }
 

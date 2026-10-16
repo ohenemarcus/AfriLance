@@ -5,6 +5,7 @@ import {
   getListNotificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,7 @@ function notifColors(type: string, isRead: boolean) {
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data, isLoading } = useListNotifications({}, {
     query: { queryKey: getListNotificationsQueryKey({}) },
@@ -100,6 +102,54 @@ export default function NotificationsPage() {
         },
       },
     );
+  };
+
+  const getNotificationDestination = (notification: NonNullable<typeof data>["notifications"][number]) => {
+    const relatedId = notification.relatedId;
+    switch (notification.type) {
+      case "proposal_accepted":
+        if (relatedId == null) return "/messages";
+        return notification.relatedType === "conversation"
+          ? `/messages?conversation=${relatedId}`
+          : `/messages?proposal=${relatedId}`;
+      case "new_message":
+        return relatedId == null ? "/messages" : `/messages?conversation=${relatedId}`;
+      case "new_proposal":
+        return notification.relatedType === "job" && relatedId != null
+          ? `/jobs/${relatedId}`
+          : "/jobs";
+      case "proposal_rejected":
+      case "proposal_status":
+        return "/proposals";
+      case "job_flagged":
+        return notification.relatedType === "job" && relatedId != null
+          ? `/jobs/${relatedId}`
+          : "/dashboard";
+      case "payment_escrowed":
+      case "payment_released":
+      case "payment_dispute":
+        return "/payments";
+      case "id_verified":
+      case "id_rejected":
+      case "top_rated":
+        return "/settings";
+      default:
+        return "/dashboard";
+    }
+  };
+
+  const openNotification = (notification: NonNullable<typeof data>["notifications"][number]) => {
+    const destination = getNotificationDestination(notification);
+    if (notification.isRead) {
+      setLocation(destination);
+      return;
+    }
+    markRead({ id: notification.id }, {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey({}) });
+        setLocation(destination);
+      },
+    });
   };
 
   const handleMarkAll = () => {
@@ -147,8 +197,17 @@ export default function NotificationsPage() {
           {data.notifications.map((n) => (
             <div
               key={n.id}
+              role="link"
+              tabIndex={0}
+              onClick={() => openNotification(n)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openNotification(n);
+                }
+              }}
               className={cn(
-                "flex items-start gap-4 p-4 bg-card border rounded-xl transition-colors",
+                "flex items-start gap-4 p-4 bg-card border rounded-xl transition-colors cursor-pointer hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 n.isRead ? "border-border" : "border-primary/30 bg-primary/5",
               )}
             >
@@ -162,21 +221,11 @@ export default function NotificationsPage() {
                 <div className="text-sm font-semibold text-foreground">{n.title}</div>
                 <div className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{n.body}</div>
                 <div className="text-xs text-muted-foreground mt-1.5">{formatRelative(n.createdAt)}</div>
-                {n.type === "proposal_accepted" && n.relatedId != null && (
-                  <a
-                    href={n.relatedType === "conversation"
-                      ? `/messages?conversation=${n.relatedId}`
-                      : `/messages?proposal=${n.relatedId}`}
-                    onClick={() => { if (!n.isRead) handleMarkRead(n.id); }}
-                    className="mt-2 inline-flex text-sm font-semibold text-primary hover:underline"
-                  >
-                    Message now
-                  </a>
-                )}
+                <div className="mt-2 text-xs font-medium text-primary">Open</div>
               </div>
               {!n.isRead && (
                 <button
-                  onClick={() => handleMarkRead(n.id)}
+                  onClick={(event) => { event.stopPropagation(); handleMarkRead(n.id); }}
                   className="text-xs text-primary hover:underline flex-shrink-0 mt-0.5"
                 >
                   Mark read
