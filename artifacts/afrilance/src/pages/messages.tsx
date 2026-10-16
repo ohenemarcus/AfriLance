@@ -9,15 +9,68 @@ import {
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
 import { formatRelative } from "@/lib/format";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FileText, Flag, ImagePlus, Search, X } from "lucide-react";
 
-function attachmentHref(messageId: number): string {
+function attachmentApiUrl(messageId: number): string {
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
   return `${apiBase}/api/messages/${messageId}/attachment`;
+}
+
+function MessageAttachment({ message }: { message: { id: number; attachmentType: string | null; attachmentName: string | null } }) {
+  const { getToken } = useAuth();
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl = "";
+
+    void (async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch(attachmentApiUrl(message.id), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`File request failed (${response.status})`);
+        objectUrl = URL.createObjectURL(await response.blob());
+        setUrl(objectUrl);
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setError(requestError instanceof Error ? requestError.message : "Could not load attachment");
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [getToken, message.id]);
+
+  if (error) return <p className="mt-2 text-xs text-destructive">{error}</p>;
+  if (!url) return <p className="mt-2 text-xs opacity-70">Loading attachment…</p>;
+
+  if (message.attachmentType?.startsWith("image/")) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="mt-1 block">
+        <img src={url} alt={message.attachmentName ?? "Message attachment"} className="max-h-64 max-w-full rounded object-contain" />
+        <span className="mt-1 block break-all text-xs underline">{message.attachmentName}</span>
+      </a>
+    );
+  }
+
+  return (
+    <a href={url} download={message.attachmentName ?? "attachment"} className="mt-1 flex items-center gap-2 rounded border border-current/20 p-2 underline">
+      <FileText className="h-4 w-4 shrink-0" />
+      <span className="break-all">{message.attachmentName ?? "Download attachment"}</span>
+    </a>
+  );
 }
 
 function formatMessageTime(value: string): string {
@@ -48,7 +101,6 @@ export default function MessagesPage() {
   const { data: profile } = useGetMyProfile({
     query: { queryKey: getGetMyProfileQueryKey() },
   });
-
   const { data: conversationsData, isLoading: convoLoading } = useListConversations({
     query: { queryKey: getListConversationsQueryKey() },
   });
@@ -312,19 +364,7 @@ export default function MessagesPage() {
                         )}
                         <div className={`max-w-sm min-w-24 rounded-2xl px-4 py-2.5 text-sm ${isMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"}`}>
                           {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
-                          {msg.attachmentUrl && (
-                            msg.attachmentType?.startsWith("image/") ? (
-                              <a href={attachmentHref(msg.id)} target="_blank" rel="noreferrer" className="mt-1 block">
-                                <img src={attachmentHref(msg.id)} alt={msg.attachmentName ?? "Message attachment"} className="max-h-64 max-w-full rounded object-contain" />
-                                <span className="mt-1 block break-all text-xs underline">{msg.attachmentName}</span>
-                              </a>
-                            ) : (
-                              <a href={attachmentHref(msg.id)} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-2 rounded border border-current/20 p-2 underline">
-                                <FileText className="h-4 w-4 shrink-0" />
-                                <span className="break-all">{msg.attachmentName ?? "Download attachment"}</span>
-                              </a>
-                            )
-                          )}
+                          {msg.attachmentUrl && <MessageAttachment message={msg} />}
                           <div className={`mt-1 flex items-center justify-end gap-1 text-[11px] ${isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                             <time dateTime={msg.createdAt} title={formatRelative(msg.createdAt)}>{formatMessageTime(msg.createdAt)}</time>
                             {isMe && <span>{msg.isRead ? "Read" : "Sent"}</span>}

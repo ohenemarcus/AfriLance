@@ -26,9 +26,17 @@ async function requireProfile(userId: string) {
 router.get("/messages/:messageId/attachment", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const profile = auth?.userId ? await requireProfile(auth.userId) : null;
-  const messageId = Number(req.params.messageId);
-  if (!profile || !Number.isInteger(messageId) || messageId <= 0) {
-    res.status(profile ? 400 : 401).json({ error: "Invalid attachment request" });
+  if (!profile) {
+    res.status(401).json({ error: "Sign in to view this attachment" });
+    return;
+  }
+  const rawMessageId = req.params.messageId;
+  const messageId = typeof rawMessageId === "string" && /^\d+$/.test(rawMessageId)
+    ? Number(rawMessageId)
+    : NaN;
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    req.log.warn({ messageId: rawMessageId }, "Invalid message attachment ID");
+    res.status(400).json({ error: "Invalid message attachment ID" });
     return;
   }
 
@@ -57,6 +65,25 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
     res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(message.attachmentName ?? "attachment")}`);
     res.setHeader("Cache-Control", "private, no-store");
     res.send(object.data);
+    return;
+  }
+
+  const r2Id = message.attachmentUrl.match(/^\/api\/storage\/r2-objects\/([0-9a-f-]{36})$/i)?.[1];
+  if (r2Id) {
+    try {
+      const object = await objectStorageService.readR2Upload(r2Id);
+      if (!object) {
+        res.status(404).json({ error: "Attachment not found" });
+        return;
+      }
+      res.setHeader("Content-Type", object.contentType);
+      res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(message.attachmentName ?? "attachment")}`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.send(object.data);
+    } catch (error) {
+      req.log.error({ err: error, messageId }, "Failed to read message attachment from R2");
+      res.status(502).json({ error: "Attachment storage is temporarily unavailable" });
+    }
     return;
   }
 
@@ -277,7 +304,7 @@ router.post("/messages", async (req, res): Promise<void> => {
   if (
     (!parsed.data.content.trim() && !hasAttachment) ||
     parsed.data.content.length > 5000 ||
-    (parsed.data.attachmentUrl && !/^\/(objects\/|api\/storage\/local-objects\/)/.test(parsed.data.attachmentUrl)) ||
+    (parsed.data.attachmentUrl && !/^\/(objects\/|api\/storage\/(local-objects|r2-objects)\/)/.test(parsed.data.attachmentUrl)) ||
     (parsed.data.attachmentName && parsed.data.attachmentName.length > 255) ||
     (parsed.data.attachmentType && parsed.data.attachmentType.length > 120)
   ) {

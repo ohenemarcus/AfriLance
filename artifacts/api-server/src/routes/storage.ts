@@ -6,6 +6,10 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { getAuth } from "@clerk/express";
+import { db, profilesTable } from "@workspace/db";
+import { eq, or } from "drizzle-orm";
+import { isAdminUser } from "../lib/adminAccess";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -27,8 +31,8 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   try {
     const { name, size, contentType } = parsed.data;
 
-    if (!process.env.PRIVATE_OBJECT_DIR) {
-      const localUpload = await objectStorageService.createLocalUpload();
+    if (objectStorageService.isR2Enabled() || !process.env.PRIVATE_OBJECT_DIR) {
+      const localUpload = await objectStorageService.createUpload();
       res.json(
         RequestUploadUrlResponse.parse({
           ...localUpload,
@@ -51,6 +55,89 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
+router.put("/storage/r2-uploads/:objectId", async (req: Request, res: Response) => {
+  const objectId = req.params.objectId;
+  if (!objectStorageService.isR2Enabled()) {
+    res.status(503).json({ error: "Cloudflare R2 is not configured" });
+    return;
+  }
+  if (!objectId || Array.isArray(objectId) || !/^[0-9a-f-]{36}$/i.test(objectId)) {
+    res.status(400).json({ error: "Invalid upload ID" });
+    return;
+  }
+
+  const contentType = req.header("content-type") || "application/octet-stream";
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.from(chunk);
+    size += buffer.length;
+    if (size > 10 * 1024 * 1024) {
+      res.status(413).json({ error: "File must be no larger than 10MB" });
+      return;
+    }
+    chunks.push(buffer);
+  }
+  const data = Buffer.concat(chunks);
+  if (data.length === 0) {
+    res.status(400).json({ error: "File cannot be empty" });
+    return;
+  }
+
+  try {
+    await objectStorageService.saveUpload(objectId, data, contentType);
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to store upload in Cloudflare R2");
+    res.status(502).json({ error: "File storage is temporarily unavailable" });
+  }
+});
+
+router.get("/storage/r2-objects/:objectId", async (req: Request, res: Response) => {
+  const objectId = req.params.objectId;
+  if (!objectId || Array.isArray(objectId) || !/^[0-9a-f-]{36}$/i.test(objectId)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+
+  try {
+    const objectPath = `/api/storage/r2-objects/${objectId}`;
+    const [owner] = await db.select({ userId: profilesTable.userId, role: profilesTable.role, resumeUrl: profilesTable.resumeUrl, verificationDocUrl: profilesTable.verificationDocUrl })
+      .from(profilesTable)
+      .where(or(eq(profilesTable.verificationDocUrl, objectPath), eq(profilesTable.resumeUrl, objectPath)));
+    if (!owner) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    if (owner.verificationDocUrl === objectPath) {
+      const userId = getAuth(req)?.userId;
+      const isOwner = userId === owner.userId;
+      const [viewer] = userId
+        ? await db.select({ role: profilesTable.role }).from(profilesTable).where(eq(profilesTable.userId, userId))
+        : [];
+      const isModerator = viewer?.role === "moderator";
+      const isAdmin = userId ? await isAdminUser(userId) : false;
+      if (!isOwner && !isModerator && !isAdmin) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+    }
+
+    const object = await objectStorageService.readR2Upload(objectId);
+    if (!object) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    res.setHeader("Content-Type", object.contentType);
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Cache-Control", owner.verificationDocUrl === objectPath ? "private, no-store" : "public, max-age=3600");
+    res.send(object.data);
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to read file from Cloudflare R2");
+    res.status(502).json({ error: "File storage is temporarily unavailable" });
   }
 });
 

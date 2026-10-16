@@ -1,4 +1,5 @@
 import { Storage, File } from "@google-cloud/storage";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { Readable } from "stream";
@@ -12,6 +13,37 @@ import {
 } from "./objectAcl";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+
+type R2Config = {
+  endpoint: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+function getR2Config(): R2Config | null {
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
+  const bucket = process.env.CLOUDFLARE_R2_BUCKET || process.env.R2_BUCKET_NAME || process.env.R2_BUCKET || process.env.CLOUDFLARE_BUCKET_NAME;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
+  const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT || process.env.R2_ENDPOINT ||
+    (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "");
+
+  const configuredValues = [accountId, bucket, accessKeyId, secretAccessKey, endpoint].filter(Boolean).length;
+  if (configuredValues === 0) return null;
+  if (!accountId || !bucket || !accessKeyId || !secretAccessKey || !endpoint) {
+    throw new Error("Cloudflare R2 configuration is incomplete. Set the account ID, bucket, access key ID, and secret access key.");
+  }
+  return { endpoint, bucket, accessKeyId, secretAccessKey };
+}
+
+function createR2Client(config: R2Config): S3Client {
+  return new S3Client({
+    region: "auto",
+    endpoint: config.endpoint,
+    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+  });
+}
 
 export const objectStorageClient = new Storage({
   credentials: {
@@ -41,6 +73,53 @@ export class ObjectNotFoundError extends Error {
 
 export class ObjectStorageService {
   constructor() {}
+
+  isR2Enabled(): boolean {
+    return getR2Config() !== null;
+  }
+
+  async createUpload(): Promise<{ uploadURL: string; objectPath: string }> {
+    const config = getR2Config();
+    if (!config) return this.createLocalUpload();
+    const objectId = randomUUID();
+    return {
+      uploadURL: `/api/storage/r2-uploads/${objectId}`,
+      objectPath: `/api/storage/r2-objects/${objectId}`,
+    };
+  }
+
+  async saveUpload(objectId: string, data: Buffer, contentType: string): Promise<void> {
+    const config = getR2Config();
+    if (!config) return this.saveLocalUpload(objectId, data, contentType);
+    await createR2Client(config).send(new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: objectId,
+      Body: data,
+      ContentType: contentType,
+    }));
+  }
+
+  async readR2Upload(objectId: string): Promise<{ data: Buffer; contentType: string } | null> {
+    const config = getR2Config();
+    if (!config) return null;
+    try {
+      const object = await createR2Client(config).send(new GetObjectCommand({
+        Bucket: config.bucket,
+        Key: objectId,
+      }));
+      if (!object.Body) return null;
+      const data = await object.Body.transformToByteArray();
+      return {
+        data: Buffer.from(data),
+        contentType: object.ContentType || "application/octet-stream",
+      };
+    } catch (error) {
+      if ((error as { name?: string }).name === "NoSuchKey" || (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
 
   private getLocalUploadDir(): string {
     return process.env.LOCAL_UPLOAD_DIR || path.join(process.cwd(), "local-uploads");
