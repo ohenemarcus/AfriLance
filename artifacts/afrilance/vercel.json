@@ -14,6 +14,14 @@
       "destination": "https://afrilance-js3k.onrender.com/api/:path*"
     },
     {
+      "source": "/__clerk",
+      "destination": "https://afrilance-js3k.onrender.com/api/__clerk"
+    },
+    {
+      "source": "/__clerk/:path*",
+      "destination": "https://afrilance-js3k.onrender.com/api/__clerk/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
