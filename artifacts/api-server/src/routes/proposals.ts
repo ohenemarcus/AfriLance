@@ -179,12 +179,35 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Fetch proposal + job for rich notification
+  const [actorProfile] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+  if (!actorProfile) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+
+  // Fetch proposal + job to authorize the client and validate the transition.
   const [existingRow] = await db
     .select({ proposal: proposalsTable, job: jobsTable })
     .from(proposalsTable)
     .leftJoin(jobsTable, eq(proposalsTable.jobId, jobsTable.id))
     .where(eq(proposalsTable.id, params.data.id));
+
+  if (!existingRow?.proposal || !existingRow.job) {
+    res.status(404).json({ error: "Proposal not found" });
+    return;
+  }
+  if (existingRow.job.clientId !== actorProfile.id) {
+    res.status(403).json({ error: "Only the job owner can update proposal status" });
+    return;
+  }
+  if (!["submitted", "under_review"].includes(existingRow.proposal.status) ||
+      !["under_review", "accepted", "rejected"].includes(parsed.data.status)) {
+    res.status(400).json({ error: "This proposal can no longer be updated" });
+    return;
+  }
 
   const [updated] = await db
     .update(proposalsTable)

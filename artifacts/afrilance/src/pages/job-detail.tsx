@@ -272,7 +272,7 @@ export default function JobDetailPage() {
                       <div className="flex flex-wrap gap-1 mb-3">
                         {(p.freelancerSkills ?? []).slice(0, 3).map((s: string) => <SkillBadge key={s} skill={s} />)}
                       </div>
-                      {p.status === "submitted" && (
+                      {(p.status === "submitted" || p.status === "under_review") && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleStatusUpdate(p.id, "accepted")}
@@ -280,12 +280,14 @@ export default function JobDetailPage() {
                           >
                             Accept
                           </button>
-                          <button
-                            onClick={() => handleStatusUpdate(p.id, "under_review")}
-                            className="px-3 py-1.5 bg-secondary text-primary rounded-lg text-xs font-medium hover:opacity-90"
-                          >
-                            Review
-                          </button>
+                          {p.status === "submitted" && (
+                            <button
+                              onClick={() => handleStatusUpdate(p.id, "under_review")}
+                              className="px-3 py-1.5 bg-secondary text-primary rounded-lg text-xs font-medium hover:opacity-90"
+                            >
+                              Review
+                            </button>
+                          )}
                           <button
                             onClick={() => handleStatusUpdate(p.id, "rejected")}
                             className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-muted"
