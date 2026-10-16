@@ -257,6 +257,7 @@ export default function PaymentsPage() {
   const { mutate: release, isPending: releasing } = useReleasePayment();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [acceptedProposalId, setAcceptedProposalId] = useState<number | null>(null);
   const [showRelease, setShowRelease] = useState<number | null>(null);
   const [form, setForm] = useState({ jobId: "", freelancerId: "", amount: "" });
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
@@ -281,6 +282,20 @@ export default function PaymentsPage() {
     releaseForm.accountNumber,
     selectedBank?.code ?? "",
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jobId = Number(params.get("jobId"));
+    const freelancerId = Number(params.get("freelancerId"));
+    const amount = Number(params.get("amount"));
+    const proposalId = Number(params.get("proposalId"));
+    if (![jobId, freelancerId, amount, proposalId].every(Number.isFinite) ||
+        jobId <= 0 || freelancerId <= 0 || amount <= 0 || proposalId <= 0) return;
+
+    setForm({ jobId: String(jobId), freelancerId: String(freelancerId), amount: String(amount) });
+    setAcceptedProposalId(proposalId);
+    setShowCreate(true);
+  }, []);
 
   useEffect(() => {
     if (acctState === "verified" && resolvedName) {
@@ -597,7 +612,9 @@ export default function PaymentsPage() {
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Funds will be charged to your card via Paystack and held securely in escrow until you release them.
+              {acceptedProposalId
+                ? "These details are filled from the accepted proposal. Review the amount, then Paystack will charge you and hold the funds in escrow."
+                : "Funds will be charged to your card via Paystack and held securely in escrow until you release them."}
             </p>
             <form onSubmit={handleCreate} className="space-y-4">
               {createError && (
@@ -608,6 +625,7 @@ export default function PaymentsPage() {
                 <input type="number" required value={form.jobId}
                   onChange={(e) => setForm((f) => ({ ...f, jobId: e.target.value }))}
                   placeholder="Enter job ID"
+                  readOnly={acceptedProposalId !== null}
                   className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
@@ -616,6 +634,7 @@ export default function PaymentsPage() {
                 <input type="number" required value={form.freelancerId}
                   onChange={(e) => setForm((f) => ({ ...f, freelancerId: e.target.value }))}
                   placeholder="Enter freelancer profile ID"
+                  readOnly={acceptedProposalId !== null}
                   className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
@@ -626,6 +645,7 @@ export default function PaymentsPage() {
                   <input type="number" required min="1" step="0.01" value={form.amount}
                     onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
                     placeholder="500"
+                    readOnly={acceptedProposalId !== null}
                     className="w-full pl-7 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>

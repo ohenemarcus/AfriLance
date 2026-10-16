@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
 import {
   useGetJob,
   useGetMyProfile,
@@ -258,7 +258,12 @@ export default function JobDetailPage() {
                         <div className="flex items-center gap-2">
                           <UserAvatar name={p.freelancerName} size="sm" />
                           <div>
-                            <div className="text-sm font-medium text-foreground">{p.freelancerName}</div>
+                            <Link
+                              to={`/freelancers/${p.freelancerId}`}
+                              className="text-sm font-medium text-foreground hover:text-primary hover:underline"
+                            >
+                              {p.freelancerName}
+                            </Link>
                             <StarRating rating={p.freelancerAvgRating} />
                           </div>
                         </div>
@@ -296,12 +301,20 @@ export default function JobDetailPage() {
                         </div>
                       )}
                       {p.status === "accepted" && (
-                        <button
-                          onClick={() => setLocation(`/messages?proposal=${p.id}`)}
-                          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-                        >
-                          Message freelancer
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setLocation(`/messages?proposal=${p.id}`)}
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                          >
+                            Message freelancer
+                          </button>
+                          <button
+                            onClick={() => setLocation(`/payments?jobId=${job.id}&freelancerId=${p.freelancerId}&amount=${p.bidAmount}&proposalId=${p.id}`)}
+                            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                          >
+                            Create payment
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}

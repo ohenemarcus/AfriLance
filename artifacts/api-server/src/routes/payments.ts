@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq, or, desc } from "drizzle-orm";
+import { eq, or, desc, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, paymentsTable, paymentStatusHistoryTable, profilesTable, jobsTable, notificationsTable } from "@workspace/db";
+import { db, paymentsTable, paymentStatusHistoryTable, profilesTable, jobsTable, proposalsTable, notificationsTable } from "@workspace/db";
 import { z } from "zod";
 import {
   initializeTransaction,
@@ -93,9 +93,27 @@ router.post("/payments", async (req, res): Promise<void> => {
 
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+  if (job.clientId !== profile.id) {
+    res.status(403).json({ error: "You can only pay for a job you posted" });
+    return;
+  }
 
   const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, freelancerId));
   if (!freelancer) { res.status(404).json({ error: "Freelancer not found" }); return; }
+
+  const [acceptedProposal] = await db.select().from(proposalsTable).where(and(
+    eq(proposalsTable.jobId, jobId),
+    eq(proposalsTable.freelancerId, freelancerId),
+    eq(proposalsTable.status, "accepted"),
+  ));
+  if (!acceptedProposal) {
+    res.status(400).json({ error: "Payments can only be started for the freelancer whose proposal you accepted" });
+    return;
+  }
+  if (Math.abs(amount - acceptedProposal.bidAmount) > 0.01) {
+    res.status(400).json({ error: "Payment amount must match the accepted proposal bid" });
+    return;
+  }
 
   const reference = generateReference("afl");
 
