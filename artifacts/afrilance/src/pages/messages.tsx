@@ -83,6 +83,15 @@ export default function MessagesPage() {
     queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
   }, [selectedConversation, messagesData, queryClient]);
 
+  useEffect(() => {
+    const requestedConversationId = Number(new URLSearchParams(window.location.search).get("conversation"));
+    if (!Number.isInteger(requestedConversationId) || requestedConversationId <= 0) return;
+    const requestedConversation = conversationsData?.conversations.find(
+      (conversation) => conversation.id === requestedConversationId,
+    );
+    if (requestedConversation) setSelectedConversation(requestedConversation.id);
+  }, [conversationsData]);
+
   useEffect(() => () => {
     if (typingTimer.current) clearTimeout(typingTimer.current);
     if (typingStopTimer.current) clearTimeout(typingStopTimer.current);

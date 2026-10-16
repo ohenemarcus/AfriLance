@@ -5,11 +5,13 @@ import {
   useGetMyProfile,
   useCreateProposal,
   useListJobProposals,
+  useListConversations,
   useUpdateProposalStatus,
   useUpdateJob,
   useListProfileReviews,
   getGetJobQueryKey,
   getListJobProposalsQueryKey,
+  getListConversationsQueryKey,
   getGetMyProfileQueryKey,
   getListProfileReviewsQueryKey,
 } from "@workspace/api-client-react";
@@ -45,6 +47,12 @@ export default function JobDetailPage() {
       enabled: isValidJobId && !!job && authLoaded && isSignedIn === true && !!profile &&
         profile.id === job.clientId && (profile.role === "client" || profile.role === "admin"),
       queryKey: getListJobProposalsQueryKey(jobId),
+    },
+  });
+  const { data: conversationsData } = useListConversations({
+    query: {
+      enabled: !!profile && (profile.role === "client" || profile.role === "admin"),
+      queryKey: getListConversationsQueryKey(),
     },
   });
 
@@ -161,6 +169,7 @@ export default function JobDetailPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListJobProposalsQueryKey(jobId) });
+          queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
         },
       },
     );
@@ -296,6 +305,19 @@ export default function JobDetailPage() {
                           </button>
                         </div>
                       )}
+                      {p.status === "accepted" && (() => {
+                        const conversation = conversationsData?.conversations.find(
+                          (item) => item.otherUserId === p.freelancerId,
+                        );
+                        return conversation ? (
+                          <button
+                            onClick={() => setLocation(`/messages?conversation=${conversation.id}`)}
+                            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                          >
+                            Message freelancer
+                          </button>
+                        ) : null;
+                      })()}
                     </div>
                   ))}
                 </div>

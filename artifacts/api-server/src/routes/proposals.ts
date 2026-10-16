@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, proposalsTable, profilesTable, jobsTable, notificationsTable } from "@workspace/db";
+import { db, proposalsTable, profilesTable, jobsTable, notificationsTable, conversationsTable } from "@workspace/db";
 import {
   CreateProposalBody,
   GetProposalParams,
@@ -222,6 +222,34 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
 
   const jobTitle = existingRow?.job?.title ?? "a job";
   const isAccepted = parsed.data.status === "accepted";
+  let acceptedConversationId: number | null = null;
+
+  if (isAccepted && existingRow.job) {
+    let [conversation] = await db
+      .select()
+      .from(conversationsTable)
+      .where(or(
+        and(
+          eq(conversationsTable.participantA, existingRow.job.clientId),
+          eq(conversationsTable.participantB, updated.freelancerId),
+        ),
+        and(
+          eq(conversationsTable.participantA, updated.freelancerId),
+          eq(conversationsTable.participantB, existingRow.job.clientId),
+        ),
+      ));
+
+    if (!conversation) {
+      [conversation] = await db
+        .insert(conversationsTable)
+        .values({
+          participantA: existingRow.job.clientId,
+          participantB: updated.freelancerId,
+        })
+        .returning();
+    }
+    acceptedConversationId = conversation.id;
+  }
 
   // Rich, specific notifications per status
   if (parsed.data.status === "accepted") {
@@ -229,9 +257,9 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
       userId: updated.freelancerId,
       type: "proposal_accepted",
       title: "Proposal accepted!",
-      body: `Congratulations! Your proposal for "${jobTitle}" has been accepted. Get in touch with the client to begin.`,
-      relatedId: updated.id,
-      relatedType: "proposal",
+      body: `Your proposal for "${jobTitle}" was accepted. Open the conversation to coordinate next steps.`,
+      relatedId: acceptedConversationId,
+      relatedType: "conversation",
     });
   } else if (parsed.data.status === "rejected") {
     await db.insert(notificationsTable).values({
@@ -261,9 +289,9 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
       userId: clientId,
       type: "proposal_accepted",
       title: "You accepted a proposal",
-      body: `You've accepted a proposal for "${jobTitle}". Check your messages to coordinate next steps.`,
-      relatedId: updated.id,
-      relatedType: "proposal",
+      body: `You accepted a proposal for "${jobTitle}". Open the conversation to coordinate next steps.`,
+      relatedId: acceptedConversationId,
+      relatedType: "conversation",
     });
   }
 
