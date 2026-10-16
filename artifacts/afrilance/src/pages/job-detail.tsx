@@ -14,7 +14,7 @@ import {
   getListProfileReviewsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Show } from "@clerk/react";
+import { Show, useAuth } from "@clerk/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkillBadge } from "@/components/SkillBadge";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -25,19 +25,25 @@ import { formatBudget, formatDate, formatRelative } from "@/lib/format";
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const jobId = parseInt(id);
+  const jobId = Number.parseInt(id ?? "", 10);
+  const isValidJobId = Number.isInteger(jobId) && jobId > 0;
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   const { data: job, isLoading } = useGetJob(jobId, {
-    query: { enabled: !!jobId, queryKey: getGetJobQueryKey(jobId) },
+    query: { enabled: isValidJobId, queryKey: getGetJobQueryKey(jobId) },
   });
   const { data: profile } = useGetMyProfile({
-    query: { queryKey: getGetMyProfileQueryKey() },
+    query: {
+      enabled: authLoaded && isSignedIn === true,
+      queryKey: getGetMyProfileQueryKey(),
+    },
   });
   const { data: proposalsData } = useListJobProposals(jobId, {
     query: {
-      enabled: !!profile && (profile.role === "client" || profile.role === "admin"),
+      enabled: isValidJobId && !!job && authLoaded && isSignedIn === true && !!profile &&
+        profile.id === job.clientId && (profile.role === "client" || profile.role === "admin"),
       queryKey: getListJobProposalsQueryKey(jobId),
     },
   });
@@ -149,7 +155,7 @@ export default function JobDetailPage() {
     );
   };
 
-  const handleStatusUpdate = (proposalId: number, status: string) => {
+  const handleStatusUpdate = (proposalId: number, status: "accepted" | "under_review" | "rejected") => {
     updateStatus(
       { id: proposalId, data: { status } },
       {

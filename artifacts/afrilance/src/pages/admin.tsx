@@ -433,7 +433,9 @@ export default function AdminPage() {
                                 {(u as any).verificationDocUrl ? (
                                   <>
                                     <a
-                                      href={`/api/storage${(u as any).verificationDocUrl}`}
+                                      href={(u as any).verificationDocUrl.startsWith("/api/storage/")
+                                        ? (u as any).verificationDocUrl
+                                        : `/api/storage${(u as any).verificationDocUrl}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-xs text-primary hover:underline flex items-center gap-1"
