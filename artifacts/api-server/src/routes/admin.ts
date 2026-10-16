@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq, ilike, and, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
+import { isAdminUser } from "../lib/adminAccess";
 import {
   db,
   profilesTable,
@@ -30,12 +31,23 @@ const AdminVerifyUserBody = z.object({
 const router = Router();
 
 async function requireAdmin(userId: string) {
+  if (!(await isAdminUser(userId))) return null;
   const [profile] = await db
     .select()
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
-  if (!profile || profile.role !== "admin") return null;
-  return profile;
+  if (!profile) return null;
+  return { ...profile, role: "admin" };
+}
+
+async function requireModeratorOrAdmin(userId: string) {
+  const [profile] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+  if (!profile) return null;
+  if (await isAdminUser(userId)) return { ...profile, role: "admin" };
+  return profile.role === "moderator" ? profile : null;
 }
 
 async function insertAuditLog(params: {
@@ -58,9 +70,9 @@ router.get("/admin/users", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const admin = await requireAdmin(userId);
-  if (!admin) {
-    res.status(403).json({ error: "Admin access required" });
+  const moderator = await requireModeratorOrAdmin(userId);
+  if (!moderator) {
+    res.status(403).json({ error: "Moderator access required" });
     return;
   }
 
@@ -72,7 +84,8 @@ router.get("/admin/users", async (req, res): Promise<void> => {
 
   const { role, search, limit = 50, offset = 0 } = parsed.data;
   const conditions = [];
-  if (role) conditions.push(eq(profilesTable.role, role));
+  if (role === "admin") conditions.push(eq(profilesTable.userId, userId));
+  else if (role) conditions.push(eq(profilesTable.role, role));
   if (search) {
     conditions.push(ilike(profilesTable.name, `%${search}%`));
   }
@@ -90,7 +103,13 @@ router.get("/admin/users", async (req, res): Promise<void> => {
     .from(profilesTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-  res.json({ users, total: Number(count) });
+  res.json({
+    users: users.map((user) => ({
+      ...user,
+      role: user.userId === userId ? moderator.role : user.role === "admin" ? "freelancer" : user.role,
+    })),
+    total: Number(count),
+  });
 });
 
 // PATCH /admin/users/:id/block
@@ -101,9 +120,9 @@ router.patch("/admin/users/:id/block", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const admin = await requireAdmin(userId);
-  if (!admin) {
-    res.status(403).json({ error: "Admin access required" });
+  const moderator = await requireModeratorOrAdmin(userId);
+  if (!moderator) {
+    res.status(403).json({ error: "Moderator access required" });
     return;
   }
 
@@ -116,6 +135,22 @@ router.patch("/admin/users/:id/block", async (req, res): Promise<void> => {
   const parsed = AdminBlockUserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [target] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.id, params.data.id));
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const actorIsAdmin = await isAdminUser(userId);
+  const targetIsAdmin = await isAdminUser(target.userId);
+  if (target.userId === userId || (!actorIsAdmin && (target.role === "moderator" || targetIsAdmin))) {
+    res.status(403).json({ error: "You cannot block this user" });
     return;
   }
 
@@ -132,8 +167,8 @@ router.patch("/admin/users/:id/block", async (req, res): Promise<void> => {
 
   const action = parsed.data.isBlocked ? "block_user" : "unblock_user";
   await insertAuditLog({
-    adminId: admin.id,
-    adminName: admin.name,
+    adminId: moderator.id,
+    adminName: moderator.name,
     action,
     entityType: "user",
     entityId: updated.id,
@@ -149,14 +184,22 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const admin = await requireAdmin(userId);
-  if (!admin) { res.status(403).json({ error: "Admin access required" }); return; }
+  const moderator = await requireModeratorOrAdmin(userId);
+  if (!moderator) { res.status(403).json({ error: "Moderator access required" }); return; }
 
   const params = AdminVerifyUserParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   const parsed = AdminVerifyUserBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [target] = await db.select().from(profilesTable).where(eq(profilesTable.id, params.data.id));
+  if (!target) { res.status(404).json({ error: "User not found" }); return; }
+  const actorIsAdmin = await isAdminUser(userId);
+  if (!actorIsAdmin && (target.role !== "freelancer" || parsed.data.isTopRated !== undefined)) {
+    res.status(403).json({ error: "Moderators can only verify freelancers" });
+    return;
+  }
 
   const updateData: Record<string, boolean | string> = {};
   if (parsed.data.isVerified !== undefined) updateData.isVerified = parsed.data.isVerified;
@@ -174,8 +217,8 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
   // Determine action type for audit + notification
   if (parsed.data.verificationStatus === "approved" || parsed.data.isVerified === true) {
     await insertAuditLog({
-      adminId: admin.id,
-      adminName: admin.name,
+      adminId: moderator.id,
+      adminName: moderator.name,
       action: "verify_user",
       entityType: "user",
       entityId: updated.id,
@@ -193,8 +236,8 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
     });
   } else if (parsed.data.verificationStatus === "rejected" || parsed.data.isVerified === false) {
     await insertAuditLog({
-      adminId: admin.id,
-      adminName: admin.name,
+      adminId: moderator.id,
+      adminName: moderator.name,
       action: "reject_verification",
       entityType: "user",
       entityId: updated.id,
@@ -213,8 +256,8 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
   } else if (parsed.data.isTopRated !== undefined) {
     const action = parsed.data.isTopRated ? "top_rate_user" : "remove_top_rated";
     await insertAuditLog({
-      adminId: admin.id,
-      adminName: admin.name,
+      adminId: moderator.id,
+      adminName: moderator.name,
       action,
       entityType: "user",
       entityId: updated.id,
@@ -247,7 +290,7 @@ router.patch("/admin/users/:id/role", async (req, res): Promise<void> => {
   const params = z.object({ id: z.coerce.number().int() }).safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const parsed = z.object({ role: z.enum(["freelancer", "client", "admin"]) }).safeParse(req.body);
+  const parsed = z.object({ role: z.enum(["freelancer", "client", "moderator"]) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   if (params.data.id === admin.id) {
@@ -284,9 +327,9 @@ router.get("/admin/jobs", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const admin = await requireAdmin(userId);
-  if (!admin) {
-    res.status(403).json({ error: "Admin access required" });
+  const moderator = await requireModeratorOrAdmin(userId);
+  if (!moderator) {
+    res.status(403).json({ error: "Moderator access required" });
     return;
   }
 
@@ -346,9 +389,9 @@ router.patch("/admin/jobs/:id/flag", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const admin = await requireAdmin(userId);
-  if (!admin) {
-    res.status(403).json({ error: "Admin access required" });
+  const moderator = await requireModeratorOrAdmin(userId);
+  if (!moderator) {
+    res.status(403).json({ error: "Moderator access required" });
     return;
   }
 
@@ -377,8 +420,8 @@ router.patch("/admin/jobs/:id/flag", async (req, res): Promise<void> => {
 
   const action = parsed.data.isFlagged ? "flag_job" : "unflag_job";
   await insertAuditLog({
-    adminId: admin.id,
-    adminName: admin.name,
+    adminId: moderator.id,
+    adminName: moderator.name,
     action,
     entityType: "job",
     entityId: updated.id,

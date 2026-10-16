@@ -29,6 +29,7 @@ export const GetMyProfileResponse = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()),
   "hourlyRate": zod.number().nullish(),
+  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -62,6 +63,7 @@ export const UpsertMyProfileBody = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()).optional(),
   "hourlyRate": zod.number().nullish(),
+  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -84,6 +86,7 @@ export const UpsertMyProfileResponse = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()),
   "hourlyRate": zod.number().nullish(),
+  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -123,6 +126,7 @@ export const GetProfileResponse = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()),
   "hourlyRate": zod.number().nullish(),
+  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -149,10 +153,13 @@ export const GetProfileResponse = zod.object({
  * @summary List freelancer profiles with filters
  */
 export const ListFreelancersQueryParams = zod.object({
+  "category": zod.coerce.string().optional(),
   "skill": zod.coerce.string().optional(),
   "location": zod.coerce.string().optional(),
   "minRate": zod.coerce.number().optional(),
   "maxRate": zod.coerce.number().optional(),
+  "minFixedRate": zod.coerce.number().optional(),
+  "maxFixedRate": zod.coerce.number().optional(),
   "search": zod.coerce.string().optional(),
   "featured": zod.coerce.boolean().optional(),
   "limit": zod.coerce.number().optional(),
@@ -170,6 +177,7 @@ export const ListFreelancersResponse = zod.object({
   "location": zod.string().nullish(),
   "skills": zod.array(zod.string()),
   "hourlyRate": zod.number().nullish(),
+  "fixedRate": zod.number().nullish(),
   "category": zod.string().nullish(),
   "portfolioItems": zod.array(zod.object({
   "id": zod.number(),
@@ -1019,7 +1027,7 @@ export const AdminChangeUserRoleParams = zod.object({
 })
 
 export const AdminChangeUserRoleBody = zod.object({
-  "role": zod.enum(['freelancer', 'client', 'admin'])
+  "role": zod.enum(['freelancer', 'client', 'moderator'])
 })
 
 export const AdminChangeUserRoleResponse = zod.object({

@@ -12,5 +12,5 @@ export type AdminChangeUserRoleBodyRole = typeof AdminChangeUserRoleBodyRole[key
 export const AdminChangeUserRoleBodyRole = {
   freelancer: 'freelancer',
   client: 'client',
-  admin: 'admin',
+  moderator: 'moderator',
 } as const;

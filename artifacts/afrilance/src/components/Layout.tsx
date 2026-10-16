@@ -34,9 +34,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       refetchInterval: 30000,
     },
   });
-  const unreadCount = notifData?.total ?? 0;
+  const unreadCount = notifData?.unreadCount ?? 0;
 
-  const isAdmin = profile?.role === "admin";
+  const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -77,7 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {item.label}
                   </Link>
                 ))}
-                {isAdmin && (
+                {canModerate && (
                   <Link
                     to="/admin"
                     className={cn(
@@ -85,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       location.startsWith("/admin") ? "text-primary" : "text-muted-foreground",
                     )}
                   >
-                    Admin
+                    {profile?.role === "admin" ? "Admin" : "Moderator"}
                   </Link>
                 )}
                 {/* Notification Bell */}
@@ -265,9 +265,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/settings" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
                   Settings
                 </Link>
-                {isAdmin && (
+                {canModerate && (
                   <Link to="/admin" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
-                    Admin
+                    {profile?.role === "admin" ? "Admin" : "Moderator"}
                   </Link>
                 )}
                 <button

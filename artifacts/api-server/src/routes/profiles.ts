@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, ilike, and, gte, lte, sql, or } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, profilesTable } from "@workspace/db";
+import { isAdminUser } from "../lib/adminAccess";
 import {
   UpsertMyProfileBody,
   ListFreelancersQueryParams,
@@ -55,7 +56,11 @@ router.get("/profiles/me", async (req, res): Promise<void> => {
       return;
     }
 
-    res.json(profile);
+    const isAdmin = await isAdminUser(userId);
+    res.json({
+      ...profile,
+      role: isAdmin ? "admin" : profile.role === "admin" ? "freelancer" : profile.role,
+    });
   } catch (err) {
     req.log.error({ err }, "profiles.me request failed");
     res.status(500).json({ error: "Failed to load profile" });
@@ -79,15 +84,18 @@ router.put("/profiles/me", async (req, res): Promise<void> => {
 
   try {
     const existing = await db
-      .select({ id: profilesTable.id })
+      .select({ id: profilesTable.id, role: profilesTable.role })
       .from(profilesTable)
       .where(eq(profilesTable.userId, userId));
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(profilesTable);
-    const isFirstProfile = Number(count ?? 0) === 0;
-    const role = isFirstProfile ? "admin" : parsed.data.role;
+    const isAdmin = await isAdminUser(userId);
+    const role = isAdmin
+      ? "admin"
+      : existing[0]?.role === "moderator"
+        ? "moderator"
+        : parsed.data.role === "client" || parsed.data.role === "freelancer"
+          ? parsed.data.role
+          : "freelancer";
 
     let profile;
     if (existing.length > 0) {

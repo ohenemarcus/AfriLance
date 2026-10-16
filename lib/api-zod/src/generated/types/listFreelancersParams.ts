@@ -7,10 +7,13 @@
  */
 
 export type ListFreelancersParams = {
+category?: string;
 skill?: string;
 location?: string;
 minRate?: number;
 maxRate?: number;
+minFixedRate?: number;
+maxFixedRate?: number;
 search?: string;
 featured?: boolean;
 limit?: number;

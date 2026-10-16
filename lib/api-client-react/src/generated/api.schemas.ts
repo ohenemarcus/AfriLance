@@ -35,6 +35,8 @@ export interface Profile {
   /** @nullable */
   hourlyRate?: number | null;
   /** @nullable */
+  fixedRate?: number | null;
+  /** @nullable */
   category?: string | null;
   portfolioItems: PortfolioItem[];
   /** @nullable */
@@ -65,6 +67,8 @@ export interface UpsertProfileBody {
   skills?: string[];
   /** @nullable */
   hourlyRate?: number | null;
+  /** @nullable */
+  fixedRate?: number | null;
   /** @nullable */
   category?: string | null;
   portfolioItems?: PortfolioItem[];
@@ -416,7 +420,7 @@ export type AdminChangeUserRoleBodyRole = typeof AdminChangeUserRoleBodyRole[key
 export const AdminChangeUserRoleBodyRole = {
   freelancer: 'freelancer',
   client: 'client',
-  admin: 'admin',
+  moderator: 'moderator',
 } as const;
 
 export interface AdminChangeUserRoleBody {
@@ -492,10 +496,13 @@ export interface AuditLogListResponse {
 }
 
 export type ListFreelancersParams = {
+category?: string;
 skill?: string;
 location?: string;
 minRate?: number;
 maxRate?: number;
+minFixedRate?: number;
+maxFixedRate?: number;
 search?: string;
 featured?: boolean;
 limit?: number;

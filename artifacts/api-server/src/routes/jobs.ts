@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, ilike, and, gte, lte, sql, or, asc, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, jobsTable, profilesTable } from "@workspace/db";
+import { isAdminUser } from "../lib/adminAccess";
 import {
   ListJobsQueryParams,
   CreateJobBody,
@@ -109,7 +110,8 @@ router.post("/jobs", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Profile not found" });
     return;
   }
-  if (profile.role !== "client" && profile.role !== "admin") {
+  const isAdmin = await isAdminUser(userId);
+  if (profile.role !== "client" && !isAdmin) {
     res.status(403).json({ error: "Only clients can post jobs" });
     return;
   }
@@ -122,7 +124,11 @@ router.post("/jobs", async (req, res): Promise<void> => {
 
   const [job] = await db
     .insert(jobsTable)
-    .values({ ...parsed.data, clientId: profile.id })
+    .values({
+      ...parsed.data,
+      deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
+      clientId: profile.id,
+    })
     .returning();
 
   res.status(201).json({ ...job, clientName: profile.name, clientAvatarUrl: profile.avatarUrl });
@@ -251,14 +257,19 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  if (existing.clientId !== profile.id && profile.role !== "admin") {
+  const isAdmin = await isAdminUser(userId);
+  if (existing.clientId !== profile.id && !isAdmin) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
   const [job] = await db
     .update(jobsTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({
+      ...parsed.data,
+      deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
+      updatedAt: new Date(),
+    })
     .where(eq(jobsTable.id, params.data.id))
     .returning();
 
@@ -295,7 +306,8 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  if (existing.clientId !== profile.id && profile.role !== "admin") {
+  const isAdmin = await isAdminUser(userId);
+  if (existing.clientId !== profile.id && !isAdmin) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

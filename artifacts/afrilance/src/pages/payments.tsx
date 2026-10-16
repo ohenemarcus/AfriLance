@@ -756,7 +756,7 @@ export default function PaymentsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={releasing || !canRelease || acctState === "loading" || acctState === "error"}
+                  disabled={releasing || !canRelease}
                   className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
                   {releasing ? "Transferring..." : `Release to ${isMoMo ? "MoMo" : "Bank"}`}

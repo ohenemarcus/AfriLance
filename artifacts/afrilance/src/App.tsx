@@ -239,6 +239,18 @@ function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AdminAccessGate() {
+  const { data: profile, isLoading } = useGetMyProfile({
+    query: { queryKey: getGetMyProfileQueryKey() },
+  });
+
+  if (isLoading) return null;
+  if (profile?.role !== "admin" && profile?.role !== "moderator") {
+    return <Redirect to="/dashboard" />;
+  }
+  return <AdminPage />;
+}
+
 function OnboardingRoute() {
   const { user } = useUser();
   if (!user) return <Redirect to="/sign-in" />;
@@ -293,7 +305,7 @@ function Router() {
         <AuthenticatedRoute><SettingsPage /></AuthenticatedRoute>
       </Route>
       <Route path="/admin">
-        <AuthenticatedRoute><AdminPage /></AuthenticatedRoute>
+        <AuthenticatedRoute><AdminAccessGate /></AuthenticatedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

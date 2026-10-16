@@ -12,6 +12,7 @@ import {
   profilesTable,
 } from "@workspace/db";
 import { z } from "zod";
+import { isAdminUser } from "../lib/adminAccess";
 import { refundTransaction } from "../lib/paystack";
 
 const router = Router();
@@ -19,6 +20,10 @@ const router = Router();
 async function profileFor(req: any) {
   const userId = getAuth(req)?.userId;
   return userId ? db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).then((rows) => rows[0]) : null;
+}
+
+async function canModerateProfile(profile: Awaited<ReturnType<typeof profileFor>>) {
+  return profile ? (await isAdminUser(profile.userId)) || profile.role === "moderator" : false;
 }
 
 async function enrichDispute(dispute: typeof disputesTable.$inferSelect) {
@@ -86,7 +91,8 @@ router.get("/payments/:id/disputes", async (req, res): Promise<void> => {
   if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
   const paymentId = Number(req.params.id);
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
-  if (!payment || (profile.role !== "admin" && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
+  const canModerate = await canModerateProfile(profile);
+  if (!payment || (!canModerate && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
     res.status(404).json({ error: "Payment not found" }); return;
   }
   const disputes = await db.select().from(disputesTable).where(eq(disputesTable.paymentId, paymentId)).orderBy(desc(disputesTable.createdAt));
@@ -101,7 +107,8 @@ router.post("/disputes/:id/evidence", async (req, res): Promise<void> => {
   if (!Number.isInteger(disputeId) || !parsed.success) { res.status(400).json({ error: "Invalid evidence details" }); return; }
   const [dispute] = await db.select().from(disputesTable).where(eq(disputesTable.id, disputeId));
   const [payment] = dispute ? await db.select().from(paymentsTable).where(eq(paymentsTable.id, dispute.paymentId)) : [];
-  if (!dispute || !payment || (profile.role !== "admin" && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
+  const canModerate = await canModerateProfile(profile);
+  if (!dispute || !payment || (!canModerate && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
     res.status(404).json({ error: "Dispute not found" }); return;
   }
   const [evidence] = await db.insert(disputeEvidenceTable).values({ disputeId, ...parsed.data }).returning();
@@ -110,7 +117,7 @@ router.post("/disputes/:id/evidence", async (req, res): Promise<void> => {
 
 router.get("/admin/disputes", async (req, res): Promise<void> => {
   const profile = await profileFor(req);
-  if (!profile || profile.role !== "admin") { res.status(403).json({ error: "Admin access required" }); return; }
+  if (!profile || !(await canModerateProfile(profile))) { res.status(403).json({ error: "Moderator access required" }); return; }
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const disputes = await db.select().from(disputesTable)
     .where(status ? eq(disputesTable.status, status) : undefined)
@@ -120,7 +127,7 @@ router.get("/admin/disputes", async (req, res): Promise<void> => {
 
 router.patch("/admin/disputes/:id/decision", async (req, res): Promise<void> => {
   const profile = await profileFor(req);
-  if (!profile || profile.role !== "admin") { res.status(403).json({ error: "Admin access required" }); return; }
+  if (!profile || !(await canModerateProfile(profile))) { res.status(403).json({ error: "Moderator access required" }); return; }
   const disputeId = Number(req.params.id);
   const parsed = z.object({
     decision: z.enum(["refund_partial", "refund_full", "reject"]),
@@ -171,7 +178,8 @@ router.get("/payments/:id/status-history", async (req, res): Promise<void> => {
   if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
   const paymentId = Number(req.params.id);
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
-  if (!payment || (profile.role !== "admin" && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
+  const canModerate = await canModerateProfile(profile);
+  if (!payment || (!canModerate && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
     res.status(404).json({ error: "Payment not found" }); return;
   }
   const history = await db.select().from(paymentStatusHistoryTable).where(eq(paymentStatusHistoryTable.paymentId, paymentId)).orderBy(desc(paymentStatusHistoryTable.createdAt));

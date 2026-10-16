@@ -9,9 +9,11 @@ import {
   useAdminChangeUserRole,
   useGetAdminAuditLogs,
   getGetAdminStatsQueryKey,
+  getGetMyProfileQueryKey,
   getAdminListUsersQueryKey,
   getAdminListJobsQueryKey,
   getGetAdminAuditLogsQueryKey,
+  useGetMyProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,7 +60,11 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
 export default function AdminPage() {
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
-  const [tab, setTab] = useState<Tab>("overview");
+  const { data: profile } = useGetMyProfile({
+    query: { queryKey: getGetMyProfileQueryKey() },
+  });
+  const isAdmin = profile?.role === "admin";
+  const [tab, setTab] = useState<Tab>("users");
   const [userSearch, setUserSearch] = useState("");
   const [userRole, setUserRole] = useState("");
   const [jobStatus, setJobStatus] = useState("");
@@ -71,7 +77,10 @@ export default function AdminPage() {
   const [disputeError, setDisputeError] = useState("");
 
   const { data: stats, isLoading: statsLoading } = useGetAdminStats({
-    query: { queryKey: getGetAdminStatsQueryKey() },
+    query: {
+      enabled: isAdmin && tab === "overview",
+      queryKey: getGetAdminStatsQueryKey(),
+    },
   });
 
   const userParams = {
@@ -185,7 +194,7 @@ export default function AdminPage() {
     );
   };
 
-  const handleRoleChange = (id: number, role: "freelancer" | "client" | "admin") => {
+  const handleRoleChange = (id: number, role: "freelancer" | "client" | "moderator") => {
     changeRole(
       { id, data: { role } },
       {
@@ -211,11 +220,11 @@ export default function AdminPage() {
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "overview", label: "Overview" },
+    ...(isAdmin ? [{ key: "overview" as const, label: "Overview" }] : []),
     { key: "users", label: "Users" },
     { key: "jobs", label: "Jobs" },
     { key: "disputes", label: "Disputes" },
-    { key: "audit", label: "Audit Log" },
+    ...(isAdmin ? [{ key: "audit" as const, label: "Audit Log" }] : []),
   ];
 
   return (
@@ -228,7 +237,7 @@ export default function AdminPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">{isAdmin ? "Admin Dashboard" : "Moderation"}</h1>
             <p className="text-muted-foreground text-sm">Platform management</p>
           </div>
         </div>
@@ -249,7 +258,7 @@ export default function AdminPage() {
         </div>
 
         {/* Overview Tab */}
-        {tab === "overview" && (
+        {tab === "overview" && isAdmin && (
           <div className="space-y-6">
             {statsLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -325,7 +334,8 @@ export default function AdminPage() {
                 <option value="">All roles</option>
                 <option value="freelancer">Freelancer</option>
                 <option value="client">Client</option>
-                <option value="admin">Admin</option>
+                <option value="moderator">Moderator</option>
+                {isAdmin && <option value="admin">Admin</option>}
               </select>
             </div>
 
@@ -380,6 +390,7 @@ export default function AdminPage() {
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
                               u.role === "admin" ? "bg-primary/10 text-primary" :
                               u.role === "freelancer" ? "bg-blue-100 text-blue-700" :
+                              u.role === "moderator" ? "bg-violet-100 text-violet-700" :
                               "bg-amber-100 text-amber-700"
                             }`}>
                               {u.role === "admin" && (
@@ -391,15 +402,19 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleRoleChange(u.id, e.target.value as "freelancer" | "client" | "admin")}
-                              className="px-2 py-1 bg-background border border-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                            >
-                              <option value="freelancer">Freelancer</option>
-                              <option value="client">Client</option>
-                              <option value="admin">Admin</option>
-                            </select>
+                            {u.role === "admin" ? (
+                              <span className="text-xs font-medium text-primary">Admin</span>
+                            ) : isAdmin ? (
+                              <select
+                                value={u.role}
+                                onChange={(e) => handleRoleChange(u.id, e.target.value as "freelancer" | "client" | "moderator")}
+                                className="px-2 py-1 bg-background border border-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              >
+                                <option value="freelancer">Freelancer</option>
+                                <option value="client">Client</option>
+                                <option value="moderator">Moderator</option>
+                              </select>
+                            ) : <span className="text-xs capitalize">{u.role}</span>}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{u.location ?? "—"}</td>
                           <td className="px-4 py-3 text-muted-foreground">{formatRelative(u.createdAt)}</td>
@@ -459,7 +474,7 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
-                              {u.role !== "admin" && (
+                              {u.role !== "admin" && (isAdmin || u.role !== "moderator") && (
                                 <button
                                   onClick={() => handleBlock(u.id, u.isBlocked)}
                                   className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${
@@ -484,17 +499,19 @@ export default function AdminPage() {
                                   >
                                     {(u as any).isVerified ? "✓ Verified" : "Verify"}
                                   </button>
-                                  <button
-                                    onClick={() => handleTopRated(u.id, (u as any).isTopRated ?? false)}
-                                    title="Toggle top-rated status"
-                                    className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${
-                                      (u as any).isTopRated
-                                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                        : "bg-muted text-muted-foreground hover:bg-accent"
-                                    }`}
-                                  >
-                                    {(u as any).isTopRated ? "★ Top Rated" : "Top Rate"}
-                                  </button>
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleTopRated(u.id, (u as any).isTopRated ?? false)}
+                                      title="Toggle top-rated status"
+                                      className={`text-xs px-2 py-0.5 rounded-lg font-medium transition-colors ${
+                                        (u as any).isTopRated
+                                          ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                          : "bg-muted text-muted-foreground hover:bg-accent"
+                                      }`}
+                                    >
+                                      {(u as any).isTopRated ? "★ Top Rated" : "Top Rate"}
+                                    </button>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -631,7 +648,7 @@ export default function AdminPage() {
         )}
 
         {/* Audit Log Tab */}
-        {tab === "audit" && (
+        {tab === "audit" && isAdmin && (
           <div className="space-y-4">
             <div className="flex gap-3 flex-wrap items-center">
               <select

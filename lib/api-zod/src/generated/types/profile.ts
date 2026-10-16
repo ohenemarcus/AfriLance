@@ -22,6 +22,8 @@ export interface Profile {
   /** @nullable */
   hourlyRate?: number | null;
   /** @nullable */
+  fixedRate?: number | null;
+  /** @nullable */
   category?: string | null;
   portfolioItems: PortfolioItem[];
   /** @nullable */
