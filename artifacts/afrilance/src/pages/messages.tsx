@@ -38,6 +38,8 @@ export default function MessagesPage() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSending, setReportSending] = useState(false);
+  const [conversationOpenError, setConversationOpenError] = useState("");
+  const handledProposalId = useRef<number | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -91,6 +93,22 @@ export default function MessagesPage() {
     );
     if (requestedConversation) setSelectedConversation(requestedConversation.id);
   }, [conversationsData]);
+
+  useEffect(() => {
+    const proposalId = Number(new URLSearchParams(window.location.search).get("proposal"));
+    if (!profile || !Number.isInteger(proposalId) || proposalId <= 0 || handledProposalId.current === proposalId) return;
+    handledProposalId.current = proposalId;
+    setConversationOpenError("");
+    void customFetch<{ conversationId: number }>(`/api/messages/conversations/accepted-proposal/${proposalId}`, {
+      method: "POST",
+    }).then(({ conversationId }) => {
+      setSelectedConversation(conversationId);
+      queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    }).catch(() => {
+      setConversationOpenError("This conversation is only available to the client and freelancer on an accepted proposal.");
+      handledProposalId.current = null;
+    });
+  }, [profile, queryClient]);
 
   useEffect(() => () => {
     if (typingTimer.current) clearTimeout(typingTimer.current);
@@ -177,6 +195,7 @@ export default function MessagesPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+        {conversationOpenError && <p role="alert" className="mt-2 text-sm text-destructive">{conversationOpenError}</p>}
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden flex" style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}>

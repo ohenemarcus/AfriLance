@@ -162,13 +162,15 @@ export default function NotificationsPage() {
                 <div className="text-sm font-semibold text-foreground">{n.title}</div>
                 <div className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{n.body}</div>
                 <div className="text-xs text-muted-foreground mt-1.5">{formatRelative(n.createdAt)}</div>
-                {n.type === "proposal_accepted" && n.relatedType === "conversation" && n.relatedId != null && (
+                {n.type === "proposal_accepted" && n.relatedId != null && (
                   <a
-                    href={`/messages?conversation=${n.relatedId}`}
+                    href={n.relatedType === "conversation"
+                      ? `/messages?conversation=${n.relatedId}`
+                      : `/messages?proposal=${n.relatedId}`}
                     onClick={() => { if (!n.isRead) handleMarkRead(n.id); }}
                     className="mt-2 inline-flex text-sm font-semibold text-primary hover:underline"
                   >
-                    Open conversation
+                    Message now
                   </a>
                 )}
               </div>

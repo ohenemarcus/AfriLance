@@ -2,7 +2,7 @@ import { Router } from "express";
 import { eq, and, or, sql, desc, ne } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { Readable } from "stream";
-import { db, conversationsTable, messagesTable, messageReportsTable, profilesTable, notificationsTable } from "@workspace/db";
+import { db, conversationsTable, messagesTable, messageReportsTable, profilesTable, notificationsTable, proposalsTable, jobsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
 import {
   GetConversationMessagesParams,
@@ -137,6 +137,56 @@ router.get("/messages/conversations", async (req, res): Promise<void> => {
   );
 
   res.json({ conversations: enriched });
+});
+
+router.post("/messages/conversations/accepted-proposal/:proposalId", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const proposalId = Number(req.params.proposalId);
+  if (!Number.isInteger(proposalId) || proposalId <= 0) {
+    res.status(400).json({ error: "Invalid proposal ID" });
+    return;
+  }
+
+  const profile = await requireProfile(userId);
+  if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
+
+  const [row] = await db
+    .select({ proposal: proposalsTable, job: jobsTable })
+    .from(proposalsTable)
+    .innerJoin(jobsTable, eq(proposalsTable.jobId, jobsTable.id))
+    .where(eq(proposalsTable.id, proposalId));
+
+  if (!row || row.proposal.status !== "accepted") {
+    res.status(404).json({ error: "Accepted proposal not found" });
+    return;
+  }
+
+  if (profile.id !== row.job.clientId && profile.id !== row.proposal.freelancerId) {
+    res.status(403).json({ error: "Only participants can open this conversation" });
+    return;
+  }
+
+  const otherUserId = profile.id === row.job.clientId
+    ? row.proposal.freelancerId
+    : row.job.clientId;
+  let [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(or(
+      and(eq(conversationsTable.participantA, profile.id), eq(conversationsTable.participantB, otherUserId)),
+      and(eq(conversationsTable.participantA, otherUserId), eq(conversationsTable.participantB, profile.id)),
+    ));
+
+  if (!conversation) {
+    [conversation] = await db
+      .insert(conversationsTable)
+      .values({ participantA: profile.id, participantB: otherUserId })
+      .returning();
+  }
+
+  res.json({ conversationId: conversation.id });
 });
 
 // GET /messages/conversations/:conversationId

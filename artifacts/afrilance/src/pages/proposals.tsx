@@ -51,6 +51,14 @@ export default function ProposalsPage() {
                     <span className="font-medium text-primary">{formatCurrency(p.bidAmount)}</span>
                     <span>{formatRelative(p.createdAt)}</span>
                   </div>
+                  {p.status === "accepted" && (
+                    <Link
+                      to={`/messages?proposal=${p.id}`}
+                      className="mt-3 inline-flex rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                    >
+                      Message client
+                    </Link>
+                  )}
                 </div>
                 <StatusBadge status={p.status} />
               </div>
