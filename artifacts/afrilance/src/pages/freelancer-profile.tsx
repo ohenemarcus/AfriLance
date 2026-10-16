@@ -242,7 +242,9 @@ export default function FreelancerProfilePage() {
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Resume / CV</h3>
               <a
-                href={`/api/storage${(profile as any).resumeUrl}`}
+                href={(profile as any).resumeUrl.startsWith("/api/storage/")
+                  ? (profile as any).resumeUrl
+                  : `/api/storage${(profile as any).resumeUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 w-full px-3 py-2.5 bg-primary/10 text-primary rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors"

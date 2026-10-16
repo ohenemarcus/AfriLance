@@ -67,7 +67,9 @@ function UploadButton({
           <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>
           {currentUrl && (
             <a
-              href={`/api/storage${currentUrl}`}
+              href={currentUrl.startsWith("/api/storage/")
+                ? currentUrl
+                : `/api/storage${currentUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
