@@ -320,9 +320,15 @@ export default function PaymentsPage() {
     setVerifying(true);
     setVerifyMsg("");
     try {
-      const res = await fetch(`/api/payments/verify/${ref}`);
+      const token = await getToken();
+      const res = await fetch(`/api/payments/verify/${encodeURIComponent(ref)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const json = await res.json();
       if (!res.ok) { setVerifyMsg(json.error ?? "Verification failed"); }
+      else if (json.paymentStatus === "pending") {
+        setVerifyMsg(json.message ?? "Payment is still processing. Complete checkout, then verify again.");
+      }
       else {
         sessionStorage.removeItem("pending_paystack_ref");
         setVerifyMsg("Payment verified and held in escrow!");

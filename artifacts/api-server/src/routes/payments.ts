@@ -185,7 +185,25 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
     const txn = await verifyTransaction(reference);
 
     if (txn.status !== "success") {
-      res.status(400).json({ error: `Payment not successful. Status: ${txn.status}` });
+      res.json({
+        status: txn.status,
+        paymentStatus: "pending",
+        message: txn.status === "pending" || txn.status === "ongoing"
+          ? "Paystack is still processing this payment. Complete checkout and verify again in a moment."
+          : `Paystack reports this payment as ${txn.status}. If you completed checkout, contact support before retrying the charge.`,
+      });
+      return;
+    }
+
+    if (txn.reference !== payment.paystackReference || Math.abs(txn.amount - payment.amount) > 0.01) {
+      req.log.error({
+        paymentId: payment.id,
+        expectedReference: payment.paystackReference,
+        receivedReference: txn.reference,
+        expectedAmount: payment.amount,
+        receivedAmount: txn.amount,
+      }, "Paystack verification did not match the stored payment");
+      res.status(409).json({ error: "Verified payment details do not match this payment. Please contact support." });
       return;
     }
 

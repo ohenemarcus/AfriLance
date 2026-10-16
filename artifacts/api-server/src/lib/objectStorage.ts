@@ -23,16 +23,16 @@ type R2Config = {
 
 function getR2Config(): R2Config | null {
   const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
-  const bucket = process.env.CLOUDFLARE_R2_BUCKET || process.env.R2_BUCKET_NAME || process.env.R2_BUCKET || process.env.CLOUDFLARE_BUCKET_NAME;
-  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
+  const bucket = process.env.CLOUDFLARE_R2_BUCKET || process.env.CLOUDFLARE_R2_BUCKET_NAME || process.env.R2_BUCKET_NAME || process.env.R2_BUCKET || process.env.CLOUDFLARE_BUCKET_NAME;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_R2_ACCESS_KEY || process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_R2_SECRET_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
   const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT || process.env.R2_ENDPOINT ||
     (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "");
 
   const configuredValues = [accountId, bucket, accessKeyId, secretAccessKey, endpoint].filter(Boolean).length;
   if (configuredValues === 0) return null;
-  if (!accountId || !bucket || !accessKeyId || !secretAccessKey || !endpoint) {
-    throw new Error("Cloudflare R2 configuration is incomplete. Set the account ID, bucket, access key ID, and secret access key.");
+  if (!bucket || !accessKeyId || !secretAccessKey || !endpoint) {
+    throw new Error("Cloudflare R2 configuration is incomplete. Set the bucket, access key ID, secret access key, and either the account ID or endpoint.");
   }
   return { endpoint, bucket, accessKeyId, secretAccessKey };
 }

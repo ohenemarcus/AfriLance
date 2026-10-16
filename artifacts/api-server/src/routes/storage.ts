@@ -31,7 +31,10 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   try {
     const { name, size, contentType } = parsed.data;
 
-    if (objectStorageService.isR2Enabled() || !process.env.PRIVATE_OBJECT_DIR) {
+    const useR2 = objectStorageService.isR2Enabled();
+    const useReplitStorage = Boolean(process.env.REPL_ID && process.env.PRIVATE_OBJECT_DIR);
+
+    if (useR2 || !useReplitStorage) {
       const localUpload = await objectStorageService.createUpload();
       res.json(
         RequestUploadUrlResponse.parse({
@@ -54,7 +57,15 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     );
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
-    res.status(500).json({ error: "Failed to generate upload URL" });
+    const message = error instanceof Error ? error.message : "Failed to generate upload URL";
+    const isR2ConfigurationError = message.startsWith("Cloudflare R2 configuration is incomplete");
+    res.status(isR2ConfigurationError ? 503 : 500).json({
+      error: isR2ConfigurationError
+        ? message
+        : process.env.REPL_ID && process.env.PRIVATE_OBJECT_DIR
+          ? "Replit object storage could not generate an upload URL"
+          : "Upload service could not generate an upload URL. Check the API service logs.",
+    });
   }
 });
 
