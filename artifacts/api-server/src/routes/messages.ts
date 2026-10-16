@@ -42,6 +42,7 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
 
   const [message] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
   if (!message?.attachmentUrl) {
+    req.log.warn({ messageId }, "Message attachment row is missing");
     res.status(404).json({ error: "Attachment not found" });
     return;
   }
@@ -50,6 +51,7 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
     .from(conversationsTable)
     .where(eq(conversationsTable.id, message.conversationId));
   if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    req.log.warn({ messageId, conversationId: message.conversationId, profileId: profile.id }, "Attachment request is not from a conversation participant");
     res.status(404).json({ error: "Attachment not found" });
     return;
   }
@@ -58,7 +60,8 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
   if (localId) {
     const object = await objectStorageService.readLocalUpload(localId);
     if (!object) {
-      res.status(404).json({ error: "Attachment not found" });
+      req.log.warn({ messageId, storage: "local" }, "Local message attachment is missing; it may have been removed with instance storage");
+      res.status(404).json({ error: "Attachment is no longer available. The file may have been stored on temporary server storage; ask the sender to upload it again." });
       return;
     }
     res.setHeader("Content-Type", object.contentType);
@@ -71,8 +74,14 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
   const r2Id = message.attachmentUrl.match(/^\/api\/storage\/r2-objects\/([0-9a-f-]{36})$/i)?.[1];
   if (r2Id) {
     try {
+      if (!objectStorageService.isR2Enabled()) {
+        req.log.error({ messageId, storage: "r2" }, "Message references an R2 object but R2 is not configured on this API instance");
+        res.status(503).json({ error: "Cloudflare R2 is not configured on this API service." });
+        return;
+      }
       const object = await objectStorageService.readR2Upload(r2Id);
       if (!object) {
+        req.log.warn({ messageId, storage: "r2" }, "Message R2 object was not found");
         res.status(404).json({ error: "Attachment not found" });
         return;
       }
@@ -88,6 +97,7 @@ router.get("/messages/:messageId/attachment", async (req, res): Promise<void> =>
   }
 
   if (!message.attachmentUrl.startsWith("/objects/")) {
+    req.log.warn({ messageId, attachmentPathPrefix: message.attachmentUrl.slice(0, 40) }, "Message attachment uses an unsupported storage path");
     res.status(404).json({ error: "Attachment not found" });
     return;
   }

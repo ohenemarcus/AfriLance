@@ -34,7 +34,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     const useR2 = objectStorageService.isR2Enabled();
     const useReplitStorage = Boolean(process.env.REPL_ID && process.env.PRIVATE_OBJECT_DIR);
 
-    if (useR2 || !useReplitStorage) {
+    if (useR2) {
       const localUpload = await objectStorageService.createUpload();
       res.json(
         RequestUploadUrlResponse.parse({
@@ -42,6 +42,20 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
           metadata: { name, size, contentType },
         }),
       );
+      return;
+    }
+
+    if (!useReplitStorage && process.env.NODE_ENV === "production") {
+      res.status(503).json({ error: "Durable file storage is not configured. Set the Cloudflare R2 account, bucket, access key, and secret key on the API service." });
+      return;
+    }
+
+    if (!useReplitStorage) {
+      const localUpload = await objectStorageService.createLocalUpload();
+      res.json(RequestUploadUrlResponse.parse({
+        ...localUpload,
+        metadata: { name, size, contentType },
+      }));
       return;
     }
 
