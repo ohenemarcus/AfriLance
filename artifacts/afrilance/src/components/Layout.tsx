@@ -1,8 +1,6 @@
 import { useUser, useClerk, Show } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "./UserAvatar";
 import { useGetMyProfile, getGetMyProfileQueryKey, useListNotifications, getListNotificationsQueryKey } from "@workspace/api-client-react";
@@ -19,27 +17,6 @@ const AUTH_NAV_ITEMS = [
   { href: "/jobs", label: "Jobs" },
   { href: "/messages", label: "Messages" },
 ];
-
-function ThemeToggle({ mobile = false }: { mobile?: boolean }) {
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
-
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={label}
-      title={label}
-      className={mobile
-        ? "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        : "inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"}
-    >
-      {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
-      {mobile && <span>{isDark ? "Light mode" : "Dark mode"}</span>}
-    </button>
-  );
-}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -131,7 +108,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Auth buttons */}
             <div className="hidden md:flex items-center gap-3">
-              <ThemeToggle />
               <Show when="signed-out">
                 <Link
                   to="/sign-in"
@@ -236,7 +212,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {mobileOpen && (
           <div className="md:hidden border-t border-border bg-background">
             <div className="px-4 py-3 space-y-1">
-              <ThemeToggle mobile />
               <Show when="signed-out">
                 {NAV_ITEMS.map((item) => (
                   <Link
