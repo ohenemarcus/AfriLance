@@ -25,7 +25,7 @@ import type { IncomingHttpHeaders } from "http";
 
 const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
-const CLERK_PUBLIC_PROXY_PATH = "/__clerk";
+const CLERK_PUBLIC_PROXY_PATH = CLERK_PROXY_PATH;
 
 /**
  * Returns the first effective public hostname for the given request,
