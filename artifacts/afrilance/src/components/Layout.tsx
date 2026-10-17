@@ -308,6 +308,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/sign-up" className="block hover:text-secondary transition-colors">Sign Up</Link>
                 <Link to="/sign-in" className="block hover:text-secondary transition-colors">Sign In</Link>
               </div>
+              <div className="space-y-2">
+                <p className="font-semibold text-primary-foreground">Legal</p>
+                <Link to="/terms" className="block hover:text-secondary transition-colors">Terms of Service</Link>
+                <Link to="/privacy" className="block hover:text-secondary transition-colors">Privacy Policy</Link>
+              </div>
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-primary-foreground/20 text-center text-sm text-primary-foreground/50"> All rights reserved.

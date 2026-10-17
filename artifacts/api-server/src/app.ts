@@ -12,6 +12,9 @@ import {
 import router from "./routes";
 import configRouter from "./routes/config";
 import publicRouter from "./routes/public";
+import legalRouter, {
+  requireCurrentLegalAcceptance,
+} from "./routes/legal";
 import paymentsWebhookRouter from "./routes/payments-webhook";
 import { logger } from "./lib/logger";
 
@@ -101,6 +104,8 @@ app.use((req, _res, next) => {
   next();
 });
 
+app.use("/api", legalRouter);
+app.use("/api", requireCurrentLegalAcceptance);
 app.use("/api", publicRouter);
 app.use("/api", router);
 

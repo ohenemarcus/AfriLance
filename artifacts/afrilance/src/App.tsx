@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser, useAuth } from "@clerk/react"; // 👈 Added useAuth here
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -26,7 +26,12 @@ import NotificationsPage from "@/pages/notifications";
 import PaymentsPage from "@/pages/payments";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
+import TermsPage from "@/pages/terms";
+import PrivacyPage from "@/pages/privacy";
+import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@workspace/api-zod";
 
+const LEGAL_SIGNUP_CONSENT_KEY = "afrilance-legal-consent-pending";
+const legalAcceptanceUrl = `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "")}/api/legal/acceptance`;
 
 
 // Fallback directly to the environment variable if dynamic parsing fails
@@ -179,9 +184,39 @@ function SignInPage() {
 }
 
 function SignUpPage() {
+  const [accepted, setAccepted] = useState(false);
+
+  const handleConsentChange = (checked: boolean) => {
+    setAccepted(checked);
+    if (checked) {
+      sessionStorage.setItem(LEGAL_SIGNUP_CONSENT_KEY, "true");
+    } else {
+      sessionStorage.removeItem(LEGAL_SIGNUP_CONSENT_KEY);
+    }
+  };
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-4">
+        <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
+          <input
+            type="checkbox"
+            checked={accepted}
+            onChange={(event) => handleConsentChange(event.target.checked)}
+            className="mt-1 size-4 shrink-0 accent-primary"
+          />
+          <span>
+            I have read and agree to the{" "}
+            <a href={`${basePath}/terms`} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href={`${basePath}/privacy`} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </label>
         <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
           <p className="font-semibold">Password requirements</p>
           <ul className="mt-2 space-y-1 text-muted-foreground">
@@ -190,14 +225,196 @@ function SignUpPage() {
             <li>Use at least one special character, such as !, @, or #</li>
           </ul>
         </div>
-        <SignUp
-          routing="path"
-          path={`${basePath}/sign-up`}
-          signInUrl={`${basePath}/sign-in`}
-          fallbackRedirectUrl={`${basePath}/onboarding`}
-        />
+        {accepted ? (
+          <SignUp
+            routing="path"
+            path={`${basePath}/sign-up`}
+            signInUrl={`${basePath}/sign-in`}
+            fallbackRedirectUrl={`${basePath}/onboarding`}
+          />
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">
+            Accept the Terms of Service and Privacy Policy to continue.
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
+  const [path] = useLocation();
+  const [status, setStatus] = useState<"accepted" | "required" | "error" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const isPublicLegalOrAuthPage = ["/terms", "/privacy", "/sign-in", "/sign-up"].includes(path);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || isPublicLegalOrAuthPage) {
+      setStatus(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    void (async () => {
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Your session could not be verified.");
+        const response = await fetch(legalAcceptanceUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Unable to verify your legal acceptance.");
+        const acceptance = (await response.json()) as {
+          accepted: boolean;
+          termsVersion: string;
+          privacyVersion: string;
+        };
+        if (cancelled) return;
+
+        if (acceptance.accepted) {
+          sessionStorage.removeItem(LEGAL_SIGNUP_CONSENT_KEY);
+          setStatus("accepted");
+          return;
+        }
+
+        if (
+          path === "/onboarding" &&
+          sessionStorage.getItem(LEGAL_SIGNUP_CONSENT_KEY) === "true"
+        ) {
+          const acceptResponse = await fetch(legalAcceptanceUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ accepted: true }),
+          });
+          if (!acceptResponse.ok) throw new Error("Unable to save your acceptance. Please try again.");
+          if (cancelled) return;
+          sessionStorage.removeItem(LEGAL_SIGNUP_CONSENT_KEY);
+          setStatus("accepted");
+          return;
+        }
+
+        setStatus("required");
+      } catch (cause) {
+        if (cancelled) return;
+        setError(cause instanceof Error ? cause.message : "Unable to verify your legal acceptance.");
+        setStatus("error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken, isLoaded, isPublicLegalOrAuthPage, isSignedIn, path, retryKey, userId]);
+
+  const acceptCurrentDocuments = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Your session could not be verified.");
+      const response = await fetch(legalAcceptanceUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ accepted: true }),
+      });
+      if (!response.ok) throw new Error("Unable to save your acceptance. Please try again.");
+      setStatus("accepted");
+      setChecked(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save your acceptance.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isLoaded || !isSignedIn || isPublicLegalOrAuthPage || status === "accepted") {
+    return <>{children}</>;
+  }
+
+  if (loading || status === null) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+        <p role="status" className="text-sm text-muted-foreground">Checking your legal acceptance…</p>
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+        <section className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <h1 className="text-xl font-bold text-foreground">We couldn’t verify your acceptance</h1>
+          <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>
+          <button
+            type="button"
+            onClick={() => setRetryKey((current) => current + 1)}
+            className="mt-6 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+          >
+            Try again
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
+      <section className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-10">
+        <p className="text-sm font-semibold text-primary">AfriLance legal update</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Review and accept our current policies
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          To continue using your account and AfriLance features, review the current
+          documents and confirm your agreement. Your acceptance will be recorded
+          with the date and document versions.
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <a href={`${basePath}/terms`} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border p-4 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary">
+            <span className="block font-semibold text-foreground">Terms of Service</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Version {CURRENT_TERMS_VERSION}</span>
+          </a>
+          <a href={`${basePath}/privacy`} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border p-4 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary">
+            <span className="block font-semibold text-foreground">Privacy Policy</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Version {CURRENT_PRIVACY_VERSION}</span>
+          </a>
+        </div>
+        <label className="mt-6 flex items-start gap-3 text-sm leading-6 text-foreground">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => setChecked(event.target.checked)}
+            className="mt-1 size-4 shrink-0 accent-primary"
+          />
+          <span>I have read and agree to the Terms of Service and Privacy Policy.</span>
+        </label>
+        {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
+        <button
+          type="button"
+          onClick={acceptCurrentDocuments}
+          disabled={!checked || saving}
+          className="mt-6 w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving acceptance…" : "Accept and continue"}
+        </button>
+      </section>
+    </main>
   );
 }
 
@@ -260,6 +477,8 @@ function OnboardingRoute() {
 function Router() {
   return (
     <Switch>
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
       <Route path="/" component={HomeRoute} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
@@ -347,7 +566,9 @@ function ClerkProviderWithRoutes() {
         {/* 👇 INJECTED HERE: Resolves 401s by feeding customFetch your Clerk key */}
         <ClerkTokenBridge /> 
         <TooltipProvider>
-          <Router />
+          <LegalAcceptanceBoundary>
+            <Router />
+          </LegalAcceptanceBoundary>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

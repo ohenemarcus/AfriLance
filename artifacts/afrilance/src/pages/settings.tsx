@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { Link } from "wouter";
 
 const CATEGORIES = [
   "Software Development", "Design & Creative", "Writing & Content",
@@ -289,6 +290,15 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-foreground">Profile Settings</h1>
         <p className="text-muted-foreground text-sm">Update your public profile information</p>
       </div>
+
+      <section aria-labelledby="legal-documents-heading" className="mb-6 rounded-xl border border-border bg-card p-4">
+        <h2 id="legal-documents-heading" className="text-sm font-semibold text-foreground">Legal documents</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Review AfriLance’s current policies at any time.</p>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <Link to="/terms" className="font-medium text-primary underline underline-offset-4">Terms of Service</Link>
+          <Link to="/privacy" className="font-medium text-primary underline underline-offset-4">Privacy Policy</Link>
+        </div>
+      </section>
 
       {/* Profile Picture */}
       <div className="flex items-center gap-4 mb-6 p-4 bg-card border border-border rounded-xl">
