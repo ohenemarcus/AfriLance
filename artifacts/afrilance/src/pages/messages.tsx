@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
 import { formatRelative } from "@/lib/format";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { FileText, Flag, ImagePlus, Search, X } from "lucide-react";
+import { ArrowLeft, FileText, Flag, ImagePlus, Search, X } from "lucide-react";
 
 function attachmentApiUrl(messageId: number): string {
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -250,9 +250,9 @@ export default function MessagesPage() {
         {conversationOpenError && <p role="alert" className="mt-2 text-sm text-destructive">{conversationOpenError}</p>}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden flex" style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}>
+      <div className="bg-card border border-border rounded-xl overflow-hidden flex min-w-0 h-[calc(100dvh-220px)] min-h-[360px] md:h-[calc(100vh-260px)] md:min-h-[400px]">
         {/* Conversations list */}
-        <div className="w-80 flex-shrink-0 border-r border-border flex flex-col">
+        <div className={`w-full md:w-80 md:flex-shrink-0 border-r border-border flex-col ${selectedConversation ? "hidden md:flex" : "flex"}`}>
           <div className="p-4 border-b border-border">
             <h2 className="text-sm font-semibold text-foreground">Conversations</h2>
             <label className="relative mt-3 block">
@@ -314,7 +314,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Message thread */}
-        <div className="flex-1 flex flex-col">
+        <div className={`min-w-0 flex-1 flex-col ${selectedConversation ? "flex" : "hidden md:flex"}`}>
           {!selectedConversation ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -328,7 +328,10 @@ export default function MessagesPage() {
           ) : (
             <>
               {/* Header */}
-              <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
+              <div className="flex items-center gap-3 px-3 py-3 border-b border-border sm:px-5">
+                <button type="button" onClick={() => setSelectedConversation(null)} aria-label="Back to conversations" className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
                 <UserAvatar name={selectedConvo?.otherUserName} avatarUrl={selectedConvo?.otherUserAvatarUrl} size="sm" />
                 <div className="min-w-0">
                   <span className="block truncate font-medium text-foreground">{selectedConvo?.otherUserName}</span>
@@ -377,7 +380,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Input */}
-              <form onSubmit={submitMessage} className="border-t border-border p-4">
+              <form onSubmit={submitMessage} className="border-t border-border p-3 sm:p-4">
                 {attachment && (
                   <div className="mb-3 flex items-center justify-between gap-3 rounded border border-border bg-muted/40 px-3 py-2 text-sm">
                     <span className="min-w-0 truncate">{attachment.name}{isUploading ? ` · ${progress}%` : ""}</span>
