@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "wouter";
 import { CURRENT_PRIVACY_VERSION } from "@workspace/api-zod";
 import { LegalDocumentLayout } from "@/components/LegalDocumentLayout";
 
@@ -221,7 +222,7 @@ export default function PrivacyPage() {
           Corporation through the contact channel published on AfriLance or in
           the Platform. You may also contact the Data Protection Commission of
           Ghana to seek information or make a complaint under Act 843. Our
-          Terms of Service are available at <a className="font-medium text-primary underline underline-offset-4" href="/terms">/terms</a>.
+          Terms of Service are available in the <Link className="font-medium text-primary underline underline-offset-4" to="/terms">Terms of Service</Link>.
         </p>
       </Section>
     </LegalDocumentLayout>
