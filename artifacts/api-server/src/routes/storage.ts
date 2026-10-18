@@ -130,9 +130,9 @@ router.get("/storage/r2-objects/:objectId", async (req: Request, res: Response) 
 
   try {
     const objectPath = `/api/storage/r2-objects/${objectId}`;
-    const [owner] = await db.select({ userId: profilesTable.userId, role: profilesTable.role, resumeUrl: profilesTable.resumeUrl, verificationDocUrl: profilesTable.verificationDocUrl })
+    const [owner] = await db.select({ userId: profilesTable.userId, role: profilesTable.role, avatarUrl: profilesTable.avatarUrl, resumeUrl: profilesTable.resumeUrl, verificationDocUrl: profilesTable.verificationDocUrl })
       .from(profilesTable)
-      .where(or(eq(profilesTable.verificationDocUrl, objectPath), eq(profilesTable.resumeUrl, objectPath)));
+      .where(or(eq(profilesTable.avatarUrl, objectPath), eq(profilesTable.verificationDocUrl, objectPath), eq(profilesTable.resumeUrl, objectPath)));
     if (!owner) {
       res.status(404).json({ error: "File not found" });
       return;
