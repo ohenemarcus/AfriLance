@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { BriefcaseBusiness, CreditCard, UsersRound } from "lucide-react";
 import { useListJobs, useListFreelancers } from "@workspace/api-client-react";
 import { SkillBadge } from "@/components/SkillBadge";
 import { StarRating } from "@/components/StarRating";
@@ -40,7 +41,7 @@ export default function LandingPage() {
               <span className="text-secondary">opportunity</span>
             </h1>
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl">
-              Connect with skilled freelancers across Africa or find your next project. Secure payments, verified profiles, and world-class work.
+              Explore talent and freelance opportunities through one marketplace built for African clients and professionals.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
@@ -56,15 +57,18 @@ export default function LandingPage() {
                 Hire Talent
               </Link>
             </div>
-            <div className="mt-10 flex items-center gap-8">
+            <div className="mt-10 grid max-w-3xl grid-cols-1 gap-4 border-t border-primary-foreground/20 pt-6 sm:grid-cols-3 sm:gap-6">
               {[
-                { label: "Freelancers", value: "10K+" },
-                { label: "Jobs Posted", value: "25K+" },
-                { label: "Countries", value: "54" },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <div className="text-2xl font-bold text-secondary">{stat.value}</div>
-                  <div className="text-sm text-primary-foreground/60">{stat.label}</div>
+                { icon: UsersRound, label: "Talent discovery", description: "Profiles organized around skills" },
+                { icon: BriefcaseBusiness, label: "Project listings", description: "Jobs and proposals in one place" },
+                { icon: CreditCard, label: "Payment workflow", description: "Payments managed through the platform" },
+              ].map((feature) => (
+                <div key={feature.label} className="flex items-start gap-3">
+                  <feature.icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-secondary" />
+                  <div>
+                    <div className="font-semibold text-primary-foreground">{feature.label}</div>
+                    <div className="text-sm text-primary-foreground/60">{feature.description}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -269,10 +273,10 @@ export default function LandingPage() {
       <section className="py-20 bg-primary">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-            Ready to join Africa's freelance revolution?
+            Bring the right people and projects together.
           </h2>
           <p className="text-primary-foreground/70 mb-8">
-            Join thousands of freelancers and clients building Africa's digital economy.
+            Explore the marketplace, create a profile, or publish a project.
           </p>
           <Link
             to="/sign-up"
