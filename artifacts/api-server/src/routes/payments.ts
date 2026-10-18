@@ -151,7 +151,8 @@ router.post("/payments", async (req, res): Promise<void> => {
       reference: txn.reference,
     });
   } catch (err: any) {
-    await db.delete(paymentsTable).where(eq(paymentsTable.id, payment.id));
+    await db.update(paymentsTable).set({ status: "failed", updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
+    await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "failed", note: "Payment initialization failed" });
     req.log.error({ err }, "Paystack initialization failed");
     res.status(502).json({ error: "Payment gateway error. Please try again." });
   }
@@ -185,10 +186,15 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
     const txn = await verifyTransaction(reference);
 
     if (txn.status !== "success") {
+      const stillProcessing = txn.status === "pending" || txn.status === "ongoing";
+      if (!stillProcessing) {
+        await db.update(paymentsTable).set({ status: "failed", updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
+        await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "failed", note: `Paystack verification returned ${txn.status}` });
+      }
       res.json({
         status: txn.status,
-        paymentStatus: "pending",
-        message: txn.status === "pending" || txn.status === "ongoing"
+        paymentStatus: stillProcessing ? "pending" : "failed",
+        message: stillProcessing
           ? "Paystack is still processing this payment. Complete checkout and verify again in a moment."
           : `Paystack reports this payment as ${txn.status}. If you completed checkout, contact support before retrying the charge.`,
       });

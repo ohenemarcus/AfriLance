@@ -22,7 +22,39 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { formatRelative, formatCurrency } from "@/lib/format";
 import { useAuth } from "@clerk/react";
 
-type Tab = "overview" | "users" | "jobs" | "disputes" | "audit";
+type Tab = "overview" | "users" | "jobs" | "flagged" | "onboarding" | "failed-payments" | "disputes" | "support" | "audit";
+type OnboardingIssue = {
+  id: number;
+  name: string;
+  role: string;
+  category: string | null;
+  bio: string | null;
+  skills: string[];
+  location: string | null;
+  createdAt: string;
+  missingFields: string[];
+};
+type FailedPayment = {
+  id: number;
+  jobId: number;
+  amount: number;
+  status: string;
+  paystackReference: string | null;
+  createdAt: string;
+  jobTitle: string | null;
+  clientName: string | null;
+  freelancerName: string | null;
+};
+type SupportRequest = {
+  id: number;
+  name: string;
+  email: string;
+  category: string;
+  subject: string;
+  message: string;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: string;
+};
 type AdminDispute = {
   id: number;
   reason: string;
@@ -35,6 +67,16 @@ type AdminDispute = {
   evidence: Array<{ id: number; objectPath: string; fileName: string }>;
   createdAt: string;
 };
+
+async function adminApiRequest<T>(url: string, token: string | null, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { ...init?.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error ?? "Admin request failed");
+  return body as T;
+}
 
 function StatCard({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
   return (
@@ -75,6 +117,16 @@ export default function AdminPage() {
   const [disputesLoading, setDisputesLoading] = useState(false);
   const [disputeDecision, setDisputeDecision] = useState<Record<number, { decision: string; amount: string; notes: string }>>({});
   const [disputeError, setDisputeError] = useState("");
+  const [onboardingIssues, setOnboardingIssues] = useState<OnboardingIssue[]>([]);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingError, setOnboardingError] = useState("");
+  const [failedPayments, setFailedPayments] = useState<FailedPayment[]>([]);
+  const [failedPaymentsLoading, setFailedPaymentsLoading] = useState(false);
+  const [failedPaymentsError, setFailedPaymentsError] = useState("");
+  const [supportRequests, setSupportRequests] = useState<SupportRequest[]>([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState("");
+  const [supportFilter, setSupportFilter] = useState("open");
 
   const { data: stats, isLoading: statsLoading } = useGetAdminStats({
     query: {
@@ -94,11 +146,11 @@ export default function AdminPage() {
 
   const jobParams = {
     ...(jobStatus ? { status: jobStatus } : {}),
-    ...(flaggedOnly ? { flagged: true } : {}),
+    ...(flaggedOnly || tab === "flagged" ? { flagged: true } : {}),
     limit: 20,
   };
   const { data: jobsData, isLoading: jobsLoading } = useAdminListJobs(jobParams, {
-    query: { enabled: tab === "jobs", queryKey: getAdminListJobsQueryKey(jobParams) },
+    query: { enabled: tab === "jobs" || tab === "flagged", queryKey: getAdminListJobsQueryKey(jobParams) },
   });
 
   const auditParams = {
@@ -128,6 +180,45 @@ export default function AdminPage() {
       .finally(() => setDisputesLoading(false));
   }, [tab, getToken]);
 
+  useEffect(() => {
+    if (tab !== "onboarding") return;
+    let active = true;
+    setOnboardingLoading(true);
+    setOnboardingError("");
+    void getToken()
+      .then((token) => adminApiRequest<{ issues: OnboardingIssue[] }>("/api/admin/onboarding-issues", token))
+      .then((body) => { if (active) setOnboardingIssues(body.issues); })
+      .catch((cause) => { if (active) setOnboardingError(cause instanceof Error ? cause.message : "Could not load profile setup queue"); })
+      .finally(() => { if (active) setOnboardingLoading(false); });
+    return () => { active = false; };
+  }, [tab, getToken]);
+
+  useEffect(() => {
+    if (tab !== "failed-payments") return;
+    let active = true;
+    setFailedPaymentsLoading(true);
+    setFailedPaymentsError("");
+    void getToken()
+      .then((token) => adminApiRequest<{ payments: FailedPayment[] }>("/api/admin/failed-payments", token))
+      .then((body) => { if (active) setFailedPayments(body.payments); })
+      .catch((cause) => { if (active) setFailedPaymentsError(cause instanceof Error ? cause.message : "Could not load payment review queue"); })
+      .finally(() => { if (active) setFailedPaymentsLoading(false); });
+    return () => { active = false; };
+  }, [tab, getToken]);
+
+  useEffect(() => {
+    if (tab !== "support") return;
+    let active = true;
+    setSupportLoading(true);
+    setSupportError("");
+    void getToken()
+      .then((token) => adminApiRequest<{ requests: SupportRequest[] }>(`/api/admin/support-requests?status=${supportFilter}`, token))
+      .then((body) => { if (active) setSupportRequests(body.requests); })
+      .catch((cause) => { if (active) setSupportError(cause instanceof Error ? cause.message : "Could not load support inbox"); })
+      .finally(() => { if (active) setSupportLoading(false); });
+    return () => { active = false; };
+  }, [tab, supportFilter, getToken]);
+
   const submitDisputeDecision = async (dispute: AdminDispute) => {
     const form = disputeDecision[dispute.id] ?? { decision: "refund_full", amount: String(dispute.requestedAmount), notes: "" };
     setDisputeError("");
@@ -143,6 +234,25 @@ export default function AdminPage() {
       setDisputes((items) => items.map((item) => item.id === dispute.id ? body : item));
     } catch (error) {
       setDisputeError(error instanceof Error ? error.message : "Could not save decision");
+    }
+  };
+
+  const updateSupportRequest = async (id: number, status: SupportRequest["status"]) => {
+    setSupportError("");
+    try {
+      const token = await getToken();
+      const updated = await adminApiRequest<SupportRequest>(`/api/admin/support-requests/${id}`, token, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (supportFilter !== "all" && supportFilter !== status) {
+        setSupportRequests((items) => items.filter((item) => item.id !== id));
+      } else {
+        setSupportRequests((items) => items.map((item) => item.id === id ? updated : item));
+      }
+    } catch (cause) {
+      setSupportError(cause instanceof Error ? cause.message : "Could not update support request");
     }
   };
 
@@ -222,8 +332,12 @@ export default function AdminPage() {
   const tabs: { key: Tab; label: string }[] = [
     ...(isAdmin ? [{ key: "overview" as const, label: "Overview" }] : []),
     { key: "users", label: "Users" },
+    { key: "onboarding", label: "Profile Setup" },
     { key: "jobs", label: "Jobs" },
+    { key: "flagged", label: "Flagged Listings" },
+    { key: "failed-payments", label: "Failed Payments" },
     { key: "disputes", label: "Disputes" },
+    ...(isAdmin ? [{ key: "support" as const, label: "Support Inbox" }] : []),
     ...(isAdmin ? [{ key: "audit" as const, label: "Audit Log" }] : []),
   ];
 
@@ -243,12 +357,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 mb-6 w-fit">
+        <div className="flex max-w-full gap-1 overflow-x-auto bg-card border border-border rounded-xl p-1 mb-6">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 tab === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -528,9 +642,44 @@ export default function AdminPage() {
           </div>
         )}
 
+        {tab === "onboarding" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Profile setup gaps</h2>
+              <p className="text-sm text-muted-foreground">Freelancer profiles missing a bio, category, or skills, and client profiles missing a bio.</p>
+            </div>
+            {onboardingError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{onboardingError}</p>}
+            {onboardingLoading ? (
+              <div className="space-y-3">{[...Array(4)].map((_, index) => <Skeleton key={index} className="h-24 rounded-xl" />)}</div>
+            ) : onboardingIssues.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground">No incomplete profiles in the current review queue.</div>
+            ) : (
+              <div className="space-y-3">
+                {onboardingIssues.map((issue) => (
+                  <article key={issue.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-foreground">{issue.name}</h3>
+                        <p className="mt-0.5 text-xs capitalize text-muted-foreground">{issue.role}{issue.location ? ` · ${issue.location}` : ""} · Joined {formatRelative(issue.createdAt)}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Profile #{issue.id}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {issue.missingFields.map((field) => (
+                        <span key={field} className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium capitalize text-amber-900">Missing {field}</span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Jobs Tab */}
-        {tab === "jobs" && (
+        {(tab === "jobs" || tab === "flagged") && (
           <div className="space-y-4">
+            {tab === "flagged" && <div><h2 className="text-lg font-semibold text-foreground">Flagged listings</h2><p className="text-sm text-muted-foreground">Review reported job listings and remove flags when resolved.</p></div>}
             <div className="flex gap-3 flex-wrap items-center">
               <select
                 value={jobStatus}
@@ -542,7 +691,7 @@ export default function AdminPage() {
                 <option value="in_progress">In Progress</option>
                 <option value="closed">Closed</option>
               </select>
-              <label className="flex items-center gap-2 cursor-pointer">
+              {tab !== "flagged" && <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={flaggedOnly}
@@ -550,7 +699,7 @@ export default function AdminPage() {
                   className="rounded border-border text-primary"
                 />
                 <span className="text-sm text-foreground">Flagged only</span>
-              </label>
+              </label>}
             </div>
 
             {jobsLoading ? (
@@ -597,6 +746,43 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        )}
+
+        {tab === "failed-payments" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Payment review</h2>
+              <p className="text-sm text-muted-foreground">Failed attempts and payments left pending for more than 30 minutes.</p>
+            </div>
+            {failedPaymentsError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{failedPaymentsError}</p>}
+            {failedPaymentsLoading ? (
+              <div className="space-y-3">{[...Array(4)].map((_, index) => <Skeleton key={index} className="h-20 rounded-xl" />)}</div>
+            ) : failedPayments.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground">No failed or stale pending payments.</div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead className="border-b border-border bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+                      <tr><th className="px-4 py-3">Payment</th><th className="px-4 py-3">Project</th><th className="px-4 py-3">Client / Freelancer</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Started</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {failedPayments.map((payment) => (
+                        <tr key={payment.id} className="align-top">
+                          <td className="px-4 py-3"><div className="font-medium text-foreground">#{payment.id}</div><div className="mt-1 max-w-40 truncate font-mono text-xs text-muted-foreground" title={payment.paystackReference ?? "No gateway reference"}>{payment.paystackReference ?? "No gateway reference"}</div></td>
+                          <td className="px-4 py-3 text-foreground">{payment.jobTitle ?? `Job #${payment.jobId}`}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{payment.clientName ?? "Unknown client"}<br />{payment.freelancerName ?? "Unknown freelancer"}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{formatCurrency(payment.amount)}</td>
+                          <td className="px-4 py-3"><StatusBadge status={payment.status === "pending" ? "stale pending" : payment.status} /></td>
+                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{formatRelative(payment.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
         {/* Disputes Tab */}
@@ -647,6 +833,57 @@ export default function AdminPage() {
               })
             )}
           </div>
+        )}
+
+        {tab === "support" && isAdmin && (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Support inbox</h2>
+                <p className="text-sm text-muted-foreground">Review requests and reply directly to the email address provided.</p>
+              </div>
+              <label className="text-xs font-medium text-muted-foreground">Status
+                <select value={supportFilter} onChange={(event) => setSupportFilter(event.target.value)} className="ml-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">
+                  <option value="open">Open</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="all">All requests</option>
+                </select>
+              </label>
+            </div>
+            {supportError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{supportError}</p>}
+            {supportLoading ? (
+              <div className="space-y-3">{[...Array(4)].map((_, index) => <Skeleton key={index} className="h-36 rounded-xl" />)}</div>
+            ) : supportRequests.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground">No support requests in this view.</div>
+            ) : (
+              <div className="space-y-3">
+                {supportRequests.map((request) => (
+                  <article key={request.id} className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{request.subject}</h3>
+                          <StatusBadge status={request.status.replace("_", " ")} />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">#{request.id} · {request.category} · {formatRelative(request.createdAt)}</p>
+                      </div>
+                      <select aria-label={`Update status for request ${request.id}`} value={request.status} onChange={(event) => updateSupportRequest(request.id, event.target.value as SupportRequest["status"])} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs">
+                        <option value="open">Open</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{request.message}</p>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                      <div className="text-xs text-muted-foreground">{request.name} · <a className="text-primary underline underline-offset-2" href={`mailto:${request.email}`}>{request.email}</a></div>
+                      <a className="text-sm font-medium text-primary hover:underline" href={`mailto:${request.email}?subject=${encodeURIComponent(`Re: ${request.subject}`)}`}>Reply by email</a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {/* Audit Log Tab */}

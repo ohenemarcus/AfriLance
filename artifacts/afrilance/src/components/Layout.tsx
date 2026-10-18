@@ -178,6 +178,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         >
                           Settings
                         </Link>
+                        <Link
+                          to="/support"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-accent"
+                        >
+                          Help &amp; Support
+                        </Link>
                         <div className="border-t border-border my-1" />
                         <button
                           onClick={() => { setDropdownOpen(false); signOut({ redirectUrl: basePath + "/" }); }}
@@ -265,6 +272,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/settings" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
                   Settings
                 </Link>
+                <Link to="/support" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
+                  Help &amp; Support
+                </Link>
                 {canModerate && (
                   <Link to="/admin" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
                     {profile?.role === "admin" ? "Admin" : "Moderator"}
@@ -312,6 +322,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <p className="font-semibold text-primary-foreground">Legal</p>
                 <Link to="/terms" className="block hover:text-secondary transition-colors">Terms of Service</Link>
                 <Link to="/privacy" className="block hover:text-secondary transition-colors">Privacy Policy</Link>
+                <Link to="/support" className="block hover:text-secondary transition-colors">Help &amp; Support</Link>
               </div>
             </div>
           </div>

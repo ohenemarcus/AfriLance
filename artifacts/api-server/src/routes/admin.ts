@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { eq, ilike, and, sql, desc } from "drizzle-orm";
+import { eq, ilike, and, sql, desc, isNull, lt, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getAuth } from "@clerk/express";
 import { isAdminUser } from "../lib/adminAccess";
 import {
@@ -29,6 +30,8 @@ const AdminVerifyUserBody = z.object({
 });
 
 const router = Router();
+const paymentClientProfile = alias(profilesTable, "admin_payment_client");
+const paymentFreelancerProfile = alias(profilesTable, "admin_payment_freelancer");
 
 async function requireAdmin(userId: string) {
   if (!(await isAdminUser(userId))) return null;
@@ -317,6 +320,72 @@ router.patch("/admin/users/:id/role", async (req, res): Promise<void> => {
   });
 
   res.json(updated);
+});
+
+// GET /admin/onboarding-issues
+router.get("/admin/onboarding-issues", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await requireModeratorOrAdmin(userId))) { res.status(403).json({ error: "Moderator access required" }); return; }
+
+  const profiles = await db.select({
+    id: profilesTable.id,
+    name: profilesTable.name,
+    role: profilesTable.role,
+    category: profilesTable.category,
+    bio: profilesTable.bio,
+    skills: profilesTable.skills,
+    location: profilesTable.location,
+    createdAt: profilesTable.createdAt,
+  }).from(profilesTable).where(or(
+    and(eq(profilesTable.role, "freelancer"), or(
+      isNull(profilesTable.category),
+      eq(profilesTable.category, ""),
+      isNull(profilesTable.bio),
+      eq(profilesTable.bio, ""),
+      sql`coalesce(cardinality(${profilesTable.skills}), 0) = 0`,
+    )),
+    and(eq(profilesTable.role, "client"), or(isNull(profilesTable.bio), eq(profilesTable.bio, ""))),
+  )).orderBy(desc(profilesTable.createdAt)).limit(100);
+
+  res.json({ issues: profiles.map((profile) => ({
+    ...profile,
+    missingFields: [
+      ...(!profile.bio?.trim() ? ["bio"] : []),
+      ...(profile.role === "freelancer" && !profile.category ? ["category"] : []),
+      ...(profile.role === "freelancer" && profile.skills.length === 0 ? ["skills"] : []),
+    ],
+  })) });
+});
+
+// GET /admin/failed-payments
+router.get("/admin/failed-payments", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await requireModeratorOrAdmin(userId))) { res.status(403).json({ error: "Moderator access required" }); return; }
+
+  const staleBefore = new Date(Date.now() - 30 * 60 * 1000);
+  const payments = await db.select({
+    id: paymentsTable.id,
+    jobId: paymentsTable.jobId,
+    amount: paymentsTable.amount,
+    status: paymentsTable.status,
+    paystackReference: paymentsTable.paystackReference,
+    createdAt: paymentsTable.createdAt,
+    jobTitle: jobsTable.title,
+    clientName: paymentClientProfile.name,
+    freelancerName: paymentFreelancerProfile.name,
+  }).from(paymentsTable)
+    .leftJoin(jobsTable, eq(paymentsTable.jobId, jobsTable.id))
+    .leftJoin(paymentClientProfile, eq(paymentsTable.clientId, paymentClientProfile.id))
+    .leftJoin(paymentFreelancerProfile, eq(paymentsTable.freelancerId, paymentFreelancerProfile.id))
+    .where(or(
+      eq(paymentsTable.status, "failed"),
+      and(eq(paymentsTable.status, "pending"), lt(paymentsTable.createdAt, staleBefore)),
+    ))
+    .orderBy(desc(paymentsTable.createdAt))
+    .limit(100);
+  res.json({ payments });
 });
 
 // GET /admin/jobs
