@@ -87,18 +87,18 @@ export default function LandingPage() {
             {[
               {
                 step: "1",
-                title: "Create your profile",
-                desc: "Sign up as a freelancer or client and build your profile in minutes. Showcase your skills or describe your needs.",
+                title: "Post or apply",
+                desc: "Clients publish clear jobs and freelancers apply with proposals, skills, and budget details tailored to the work.",
               },
               {
                 step: "2",
-                title: "Post or apply for jobs",
-                desc: "Clients post jobs with budgets. Freelancers browse listings and submit proposals with competitive bids.",
+                title: "Fund and work",
+                desc: "The accepted freelancer waits for funding, the client funds the job, and work begins only after the payment is confirmed in escrow.",
               },
               {
                 step: "3",
-                title: "Work and get paid",
-                desc: "Collaborate securely. Payments are held in escrow and released when work is delivered and approved.",
+                title: "Submit, review, and release",
+                desc: "Freelancers submit work with files and notes, clients approve or request revisions, and money is released only after approval.",
               },
             ].map((item) => (
               <div key={item.step} className="relative text-center">

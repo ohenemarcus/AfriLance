@@ -324,11 +324,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/freelancers" className="block hover:text-secondary transition-colors">Find Talent</Link>
                 <Link to="/guide" className="block hover:text-secondary transition-colors">How it works</Link>
               </div>
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <p className="font-semibold text-primary-foreground">Account</p>
                 <Link to="/sign-up" className="block hover:text-secondary transition-colors">Sign Up</Link>
                 <Link to="/sign-in" className="block hover:text-secondary transition-colors">Sign In</Link>
-              </div>
+              </div> */}
               <div className="space-y-2">
                 <p className="font-semibold text-primary-foreground">Legal</p>
                 <Link to="/terms" className="block hover:text-secondary transition-colors">Terms of Service</Link>
