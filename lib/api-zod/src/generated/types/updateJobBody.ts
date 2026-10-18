@@ -5,6 +5,7 @@
  * AfriLance freelance marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateJobBodyStatus } from './updateJobBodyStatus';
 
 export interface UpdateJobBody {
   title?: string;
@@ -21,5 +22,5 @@ export interface UpdateJobBody {
   remote?: boolean;
   /** @nullable */
   deadline?: string | null;
-  status?: string;
+  status?: UpdateJobBodyStatus;
 }

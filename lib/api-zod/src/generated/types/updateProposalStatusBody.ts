@@ -5,7 +5,8 @@
  * AfriLance freelance marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateProposalStatusBodyStatus } from './updateProposalStatusBodyStatus';
 
 export interface UpdateProposalStatusBody {
-  status: string;
+  status: UpdateProposalStatusBodyStatus;
 }

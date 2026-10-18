@@ -11,6 +11,12 @@ export interface ClientDashboard {
   totalJobs: number;
   openJobs: number;
   inProgressJobs: number;
+  awaitingFundingJobs: number;
+  paymentPendingJobs: number;
+  awaitingApprovalJobs: number;
+  awaitingReleaseJobs: number;
+  completedJobs: number;
+  cancelledJobs: number;
   closedJobs: number;
   totalProposalsReceived: number;
   totalSpent: number;

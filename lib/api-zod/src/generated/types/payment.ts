@@ -20,6 +20,8 @@ export interface Payment {
   /** @nullable */
   jobTitle?: string | null;
   /** @nullable */
+  jobStatus?: string | null;
+  /** @nullable */
   freelancerName?: string | null;
   /** @nullable */
   clientName?: string | null;

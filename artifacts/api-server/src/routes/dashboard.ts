@@ -142,6 +142,19 @@ router.get("/dashboard/client", async (req, res): Promise<void> => {
     .from(jobsTable)
     .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "in_progress")));
 
+  const [awaitingFundingJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "awaiting_funding")));
+  const [paymentPendingJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "payment_pending")));
+  const [awaitingApprovalJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "awaiting_approval")));
+  const [awaitingReleaseJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "awaiting_release")));
+  const [completedJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "completed")));
+  const [cancelledJobs] = await db.select({ count: sql<number>`count(*)` }).from(jobsTable)
+    .where(and(eq(jobsTable.clientId, profile.id), eq(jobsTable.status, "cancelled")));
+
   const [closedJobs] = await db
     .select({ count: sql<number>`count(*)` })
     .from(jobsTable)
@@ -207,6 +220,12 @@ router.get("/dashboard/client", async (req, res): Promise<void> => {
     totalJobs: Number(totalJobs.count),
     openJobs: Number(openJobs.count),
     inProgressJobs: Number(inProgressJobs.count),
+    awaitingFundingJobs: Number(awaitingFundingJobs.count),
+    paymentPendingJobs: Number(paymentPendingJobs.count),
+    awaitingApprovalJobs: Number(awaitingApprovalJobs.count),
+    awaitingReleaseJobs: Number(awaitingReleaseJobs.count),
+    completedJobs: Number(completedJobs.count),
+    cancelledJobs: Number(cancelledJobs.count),
     closedJobs: Number(closedJobs.count),
     totalProposalsReceived: Number(totalProposals.count),
     totalSpent: Number(spentRow.total),

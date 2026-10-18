@@ -66,22 +66,47 @@ router.post("/payments/:id/disputes", async (req, res): Promise<void> => {
   if (payment.status !== "escrowed") { res.status(400).json({ error: "Only escrowed payments can be disputed" }); return; }
   if (parsed.data.requestedAmount > payment.amount) { res.status(400).json({ error: "Requested refund exceeds payment amount" }); return; }
 
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, payment.jobId));
+  if (!job || !["in_progress", "awaiting_approval", "awaiting_release"].includes(job.status)) {
+    res.status(409).json({ error: "This project cannot be disputed in its current stage" });
+    return;
+  }
+
   const [active] = await db.select().from(disputesTable).where(and(
     eq(disputesTable.paymentId, paymentId),
     inArray(disputesTable.status, ["open", "under_review"]),
   ));
   if (active) { res.status(409).json({ error: "This payment already has an active dispute" }); return; }
 
-  const [dispute] = await db.insert(disputesTable).values({
-    paymentId,
-    openedBy: profile.id,
-    reason: parsed.data.reason,
-    description: parsed.data.description,
-    requestedAmount: parsed.data.requestedAmount,
-    status: "open",
-  }).returning();
-  await db.update(paymentsTable).set({ status: "disputed", updatedAt: new Date() }).where(eq(paymentsTable.id, paymentId));
-  await db.insert(paymentStatusHistoryTable).values({ paymentId, status: "disputed", note: "Dispute opened", changedBy: profile.id });
+  let dispute: typeof disputesTable.$inferSelect | undefined;
+  try {
+    dispute = await db.transaction(async (tx) => {
+      const [updatedPayment] = await tx.update(paymentsTable).set({ status: "disputed", updatedAt: new Date() })
+        .where(and(eq(paymentsTable.id, paymentId), eq(paymentsTable.status, "escrowed")))
+        .returning({ id: paymentsTable.id });
+      if (!updatedPayment) return undefined;
+      const [updatedJob] = await tx.update(jobsTable).set({ status: "disputed", updatedAt: new Date() })
+        .where(and(eq(jobsTable.id, job.id), eq(jobsTable.status, job.status)))
+        .returning({ id: jobsTable.id });
+      if (!updatedJob) throw new Error("Project status changed while opening dispute");
+      const [created] = await tx.insert(disputesTable).values({
+        paymentId,
+        openedBy: profile.id,
+        reason: parsed.data.reason,
+        description: parsed.data.description,
+        requestedAmount: parsed.data.requestedAmount,
+        status: "open",
+        ...(job.status ? { previousJobStatus: job.status } : {}),
+      } as any).returning();
+      await tx.insert(paymentStatusHistoryTable).values({ paymentId, status: "disputed", note: "Dispute opened", changedBy: profile.id });
+      return created;
+    });
+  } catch (error) {
+    req.log.error({ err: error, paymentId }, "Could not open payment dispute");
+    res.status(500).json({ error: "Could not open this dispute. Please retry." });
+    return;
+  }
+  if (!dispute) { res.status(409).json({ error: "Payment status changed. Refresh and try again." }); return; }
   await notifyDisputeParticipants(payment, "Payment dispute opened", `A dispute was opened for payment #${payment.id}.`);
   res.status(201).json(await enrichDispute(dispute));
 });
@@ -155,16 +180,24 @@ router.patch("/admin/disputes/:id/decision", async (req, res): Promise<void> => 
     if (refundAmount && payment.paystackReference) await refundTransaction({ reference: payment.paystackReference, amount: refundAmount });
     const paymentStatus = parsed.data.decision === "reject" ? "escrowed" : refundAmount === payment.amount ? "refunded" : "partially_refunded";
     const disputeStatus = parsed.data.decision === "reject" ? "rejected" : "resolved";
-    const [updated] = await db.update(disputesTable).set({
-      status: disputeStatus,
-      decisionNotes: parsed.data.decisionNotes,
-      refundAmount: refundAmount || 0,
-      decidedBy: profile.id,
-      updatedAt: new Date(),
-      resolvedAt: new Date(),
-    }).where(eq(disputesTable.id, disputeId)).returning();
-    await db.update(paymentsTable).set({ status: paymentStatus, updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
-    await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: paymentStatus, note: parsed.data.decisionNotes, changedBy: profile.id });
+    const updated = await db.transaction(async (tx) => {
+      const [updatedDispute] = await tx.update(disputesTable).set({
+        status: disputeStatus,
+        decisionNotes: parsed.data.decisionNotes,
+        refundAmount: refundAmount || 0,
+        decidedBy: profile.id,
+        updatedAt: new Date(),
+        resolvedAt: new Date(),
+      }).where(eq(disputesTable.id, disputeId)).returning();
+      await tx.update(paymentsTable).set({ status: paymentStatus, updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
+      await tx.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: paymentStatus, note: parsed.data.decisionNotes, changedBy: profile.id });
+      const previousJobStatus = (dispute as any).previousJobStatus ?? "in_progress";
+      await tx.update(jobsTable).set({
+        status: parsed.data.decision === "reject" ? previousJobStatus : "cancelled",
+        updatedAt: new Date(),
+      }).where(and(eq(jobsTable.id, payment.jobId), eq(jobsTable.status, "disputed")));
+      return updatedDispute;
+    });
     await notifyDisputeParticipants(payment, "Payment dispute decided", `An admin decided your payment dispute: ${disputeStatus}.`);
     res.json(await enrichDispute(updated));
   } catch (error) {

@@ -688,7 +688,13 @@ export default function AdminPage() {
               >
                 <option value="">All statuses</option>
                 <option value="open">Open</option>
+                <option value="awaiting_funding">Awaiting funding</option>
+                <option value="payment_pending">Payment processing</option>
                 <option value="in_progress">In Progress</option>
+                <option value="awaiting_approval">Awaiting approval</option>
+                <option value="awaiting_release">Awaiting payout</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
                 <option value="closed">Closed</option>
               </select>
               {tab !== "flagged" && <label className="flex items-center gap-2 cursor-pointer">

@@ -87,6 +87,21 @@ export interface FreelancerListResponse {
   total: number;
 }
 
+export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
+
+
+export const JobStatus = {
+  open: 'open',
+  awaiting_funding: 'awaiting_funding',
+  payment_pending: 'payment_pending',
+  in_progress: 'in_progress',
+  awaiting_approval: 'awaiting_approval',
+  awaiting_release: 'awaiting_release',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  closed: 'closed',
+} as const;
+
 export interface Job {
   id: number;
   clientId: number;
@@ -104,7 +119,7 @@ export interface Job {
   remote: boolean;
   /** @nullable */
   deadline?: string | null;
-  status: string;
+  status: JobStatus;
   isFlagged: boolean;
   proposalCount: number;
   /** @nullable */
@@ -132,6 +147,13 @@ export interface CreateJobBody {
   deadline?: string | null;
 }
 
+export type UpdateJobBodyStatus = typeof UpdateJobBodyStatus[keyof typeof UpdateJobBodyStatus];
+
+
+export const UpdateJobBodyStatus = {
+  closed: 'closed',
+} as const;
+
 export interface UpdateJobBody {
   title?: string;
   description?: string;
@@ -147,12 +169,67 @@ export interface UpdateJobBody {
   remote?: boolean;
   /** @nullable */
   deadline?: string | null;
-  status?: string;
+  status?: UpdateJobBodyStatus;
 }
 
 export interface JobListResponse {
   jobs: Job[];
   total: number;
+}
+
+export interface JobWorkAttachment {
+  id: number;
+  submissionId: number;
+  objectPath: string;
+  fileName: string;
+  contentType: string;
+  createdAt: string;
+}
+
+export type JobWorkSubmissionStatus = typeof JobWorkSubmissionStatus[keyof typeof JobWorkSubmissionStatus];
+
+
+export const JobWorkSubmissionStatus = {
+  awaiting_approval: 'awaiting_approval',
+  revision_requested: 'revision_requested',
+  approved: 'approved',
+} as const;
+
+export interface JobWorkSubmission {
+  id: number;
+  jobId: number;
+  freelancerId: number;
+  note: string;
+  status: JobWorkSubmissionStatus;
+  /** @nullable */
+  revisionNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  attachments: JobWorkAttachment[];
+}
+
+export type SubmitJobWorkBodyAttachmentsItem = {
+  objectPath: string;
+  fileName: string;
+  contentType: string;
+};
+
+export interface SubmitJobWorkBody {
+  /**
+     * @minLength 10
+     * @maxLength 5000
+     */
+  note: string;
+  /** @maxItems 5 */
+  attachments?: SubmitJobWorkBodyAttachmentsItem[];
+}
+
+export interface RequestWorkRevisionBody {
+  /**
+     * @minLength 5
+     * @maxLength 2000
+     */
+  note: string;
 }
 
 export interface Proposal {
@@ -183,8 +260,17 @@ export interface CreateProposalBody {
   bidAmount: number;
 }
 
+export type UpdateProposalStatusBodyStatus = typeof UpdateProposalStatusBodyStatus[keyof typeof UpdateProposalStatusBodyStatus];
+
+
+export const UpdateProposalStatusBodyStatus = {
+  under_review: 'under_review',
+  accepted: 'accepted',
+  rejected: 'rejected',
+} as const;
+
 export interface UpdateProposalStatusBody {
-  status: string;
+  status: UpdateProposalStatusBodyStatus;
 }
 
 export interface ProposalListResponse {
@@ -323,6 +409,12 @@ export interface ClientDashboard {
   totalJobs: number;
   openJobs: number;
   inProgressJobs: number;
+  awaitingFundingJobs: number;
+  paymentPendingJobs: number;
+  awaitingApprovalJobs: number;
+  awaitingReleaseJobs: number;
+  completedJobs: number;
+  cancelledJobs: number;
   closedJobs: number;
   totalProposalsReceived: number;
   totalSpent: number;
@@ -344,6 +436,8 @@ export interface Payment {
   paystackTransferCode?: string | null;
   /** @nullable */
   jobTitle?: string | null;
+  /** @nullable */
+  jobStatus?: string | null;
   /** @nullable */
   freelancerName?: string | null;
   /** @nullable */
@@ -553,6 +647,15 @@ export const ListJobsSortBy = {
   budget_asc: 'budget_asc',
   budget_desc: 'budget_desc',
 } as const;
+
+export type ListJobWorkSubmissions200 = {
+  submissions: JobWorkSubmission[];
+};
+
+export type ApproveJobWork200 = {
+  submission: JobWorkSubmission;
+  jobStatus: string;
+};
 
 export type GetConversationMessagesParams = {
 limit?: number;

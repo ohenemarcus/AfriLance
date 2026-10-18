@@ -244,7 +244,7 @@ export const ListJobsResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -295,7 +295,7 @@ export const GetJobResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -323,7 +323,7 @@ export const UpdateJobBody = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean().optional(),
   "deadline": zod.string().nullish(),
-  "status": zod.string().optional()
+  "status": zod.enum(['closed']).optional()
 })
 
 export const UpdateJobResponse = zod.object({
@@ -339,7 +339,7 @@ export const UpdateJobResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -360,6 +360,141 @@ export const DeleteJobResponse = zod.void()
 
 
 /**
+ * @summary List work submissions for a project participant
+ */
+export const ListJobWorkSubmissionsParams = zod.object({
+  "jobId": zod.coerce.number()
+})
+
+export const ListJobWorkSubmissionsResponse = zod.object({
+  "submissions": zod.array(zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "freelancerId": zod.number(),
+  "note": zod.string(),
+  "status": zod.enum(['awaiting_approval', 'revision_requested', 'approved']),
+  "revisionNote": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "submissionId": zod.number(),
+  "objectPath": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "createdAt": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Submit project work for client review
+ */
+export const SubmitJobWorkParams = zod.object({
+  "jobId": zod.coerce.number()
+})
+
+export const submitJobWorkBodyNoteMin = 10;
+export const submitJobWorkBodyNoteMax = 5000;
+
+export const submitJobWorkBodyAttachmentsMax = 5;
+
+
+
+export const SubmitJobWorkBody = zod.object({
+  "note": zod.string().min(submitJobWorkBodyNoteMin).max(submitJobWorkBodyNoteMax),
+  "attachments": zod.array(zod.object({
+  "objectPath": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string()
+})).max(submitJobWorkBodyAttachmentsMax).optional()
+})
+
+export const SubmitJobWorkResponse = zod.void()
+
+
+/**
+ * @summary Request a revision to submitted work
+ */
+export const RequestJobWorkRevisionParams = zod.object({
+  "jobId": zod.coerce.number(),
+  "submissionId": zod.coerce.number()
+})
+
+export const requestJobWorkRevisionBodyNoteMin = 5;
+export const requestJobWorkRevisionBodyNoteMax = 2000;
+
+
+
+export const RequestJobWorkRevisionBody = zod.object({
+  "note": zod.string().min(requestJobWorkRevisionBodyNoteMin).max(requestJobWorkRevisionBodyNoteMax)
+})
+
+export const RequestJobWorkRevisionResponse = zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "freelancerId": zod.number(),
+  "note": zod.string(),
+  "status": zod.enum(['awaiting_approval', 'revision_requested', 'approved']),
+  "revisionNote": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "submissionId": zod.number(),
+  "objectPath": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Approve a work submission and prepare escrow release
+ */
+export const ApproveJobWorkParams = zod.object({
+  "jobId": zod.coerce.number(),
+  "submissionId": zod.coerce.number()
+})
+
+export const ApproveJobWorkResponse = zod.object({
+  "submission": zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "freelancerId": zod.number(),
+  "note": zod.string(),
+  "status": zod.enum(['awaiting_approval', 'revision_requested', 'approved']),
+  "revisionNote": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "submissionId": zod.number(),
+  "objectPath": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "createdAt": zod.string()
+}))
+}),
+  "jobStatus": zod.string()
+})
+
+
+/**
+ * @summary Download a project work attachment as a participant
+ */
+export const GetJobWorkAttachmentParams = zod.object({
+  "jobId": zod.coerce.number(),
+  "submissionId": zod.coerce.number(),
+  "attachmentId": zod.coerce.number()
+})
+
+export const GetJobWorkAttachmentResponse = zod.unknown()
+
+
+/**
  * @summary List jobs posted by the current client
  */
 export const ListMyJobsResponse = zod.object({
@@ -376,7 +511,7 @@ export const ListMyJobsResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -457,7 +592,7 @@ export const UpdateProposalStatusParams = zod.object({
 })
 
 export const UpdateProposalStatusBody = zod.object({
-  "status": zod.string()
+  "status": zod.enum(['under_review', 'accepted', 'rejected'])
 })
 
 export const UpdateProposalStatusResponse = zod.object({
@@ -744,6 +879,12 @@ export const GetClientDashboardResponse = zod.object({
   "totalJobs": zod.number(),
   "openJobs": zod.number(),
   "inProgressJobs": zod.number(),
+  "awaitingFundingJobs": zod.number(),
+  "paymentPendingJobs": zod.number(),
+  "awaitingApprovalJobs": zod.number(),
+  "awaitingReleaseJobs": zod.number(),
+  "completedJobs": zod.number(),
+  "cancelledJobs": zod.number(),
   "closedJobs": zod.number(),
   "totalProposalsReceived": zod.number(),
   "totalSpent": zod.number(),
@@ -762,7 +903,7 @@ export const GetClientDashboardResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -787,6 +928,7 @@ export const ListPaymentsResponse = zod.object({
   "paystackReference": zod.string().nullish(),
   "paystackTransferCode": zod.string().nullish(),
   "jobTitle": zod.string().nullish(),
+  "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -826,6 +968,7 @@ export const VerifyPaymentResponse = zod.object({
   "paystackReference": zod.string().nullish(),
   "paystackTransferCode": zod.string().nullish(),
   "jobTitle": zod.string().nullish(),
+  "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -857,6 +1000,7 @@ export const ReleasePaymentResponse = zod.object({
   "paystackReference": zod.string().nullish(),
   "paystackTransferCode": zod.string().nullish(),
   "jobTitle": zod.string().nullish(),
+  "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -917,7 +1061,7 @@ export const ListSavedJobsResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -1089,7 +1233,7 @@ export const AdminListJobsResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),
@@ -1125,7 +1269,7 @@ export const AdminFlagJobResponse = zod.object({
   "location": zod.string().nullish(),
   "remote": zod.boolean(),
   "deadline": zod.string().nullish(),
-  "status": zod.string(),
+  "status": zod.enum(['open', 'awaiting_funding', 'payment_pending', 'in_progress', 'awaiting_approval', 'awaiting_release', 'completed', 'cancelled', 'closed']),
   "isFlagged": zod.boolean(),
   "proposalCount": zod.number(),
   "clientName": zod.string().nullish(),

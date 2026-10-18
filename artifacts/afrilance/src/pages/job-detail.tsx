@@ -23,6 +23,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { StarRating } from "@/components/StarRating";
 import { ReviewModal } from "@/components/ReviewModal";
+import { JobWorkPanel } from "@/components/JobWorkPanel";
 import { formatBudget, formatDate, formatRelative } from "@/lib/format";
 
 export default function JobDetailPage() {
@@ -112,8 +113,10 @@ export default function JobDetailPage() {
   const myAcceptedProposal = myProposalsData?.proposals.find(
     (p) => p.jobId === jobId && p.status === "accepted",
   );
+      const hasAcceptedHire = isOwner ? !!acceptedProposal : !!myAcceptedProposal;
+      const projectStatus = job.status === "open" && hasAcceptedHire ? "awaiting_funding" : job.status;
 
-  const jobIsClosed = job.status === "closed";
+  const jobIsCompleted = job.status === "completed";
 
   const clientAlreadyReviewedFreelancer = freelancerReviews?.reviews.some(
     (r) => r.reviewerId === profile?.id && r.jobId === jobId,
@@ -124,14 +127,17 @@ export default function JobDetailPage() {
   );
 
   const canClientLeaveReview =
-    isOwner && jobIsClosed && !!acceptedProposal && !clientAlreadyReviewedFreelancer && !reviewSuccess;
+    isOwner && jobIsCompleted && !!acceptedProposal && !clientAlreadyReviewedFreelancer && !reviewSuccess;
 
   const canFreelancerLeaveReview =
-    isFreelancer && jobIsClosed && !!myAcceptedProposal && !freelancerAlreadyReviewedClient && !reviewSuccess;
+    isFreelancer && jobIsCompleted && !!myAcceptedProposal && !freelancerAlreadyReviewedClient && !reviewSuccess;
 
   const reviewTarget = isOwner
     ? { id: acceptedProposal?.freelancerId ?? 0, name: acceptedProposal?.freelancerName, role: "freelancer" as const }
     : { id: job.clientId, name: job.clientName, role: "client" as const };
+  const fundingHref = acceptedProposal
+    ? `/payments?jobId=${job.id}&freelancerId=${acceptedProposal.freelancerId}&amount=${acceptedProposal.bidAmount}&proposalId=${acceptedProposal.id}`
+    : "/payments";
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +174,7 @@ export default function JobDetailPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListJobProposalsQueryKey(jobId) });
+          queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
         },
       },
     );
@@ -250,6 +257,17 @@ export default function JobDetailPage() {
             </div>
           </div>
 
+          {(isOwner || !!myAcceptedProposal) && projectStatus !== "open" && (
+            <JobWorkPanel
+              jobId={jobId}
+              jobStatus={projectStatus}
+              isClient={isOwner}
+              isAcceptedFreelancer={!!myAcceptedProposal}
+              fundingHref={fundingHref}
+              onJobUpdated={() => { void queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) }); }}
+            />
+          )}
+
           {/* Client proposals management */}
           {isOwner && proposalsData && (
             <div className="bg-card border border-border rounded-xl p-6">
@@ -320,7 +338,7 @@ export default function JobDetailPage() {
                             onClick={() => setLocation(`/payments?jobId=${job.id}&freelancerId=${p.freelancerId}&amount=${p.bidAmount}&proposalId=${p.id}`)}
                             className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
                           >
-                            Create payment
+                            Fund project
                           </button>
                         </div>
                       )}
@@ -381,7 +399,7 @@ export default function JobDetailPage() {
                     onClick={handleCloseJob}
                     className="w-full py-2 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
                   >
-                    Close Job
+                    Close listing
                   </button>
                 )}
               </div>

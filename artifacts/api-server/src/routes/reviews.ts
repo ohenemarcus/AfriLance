@@ -51,8 +51,8 @@ router.post("/reviews", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  if (job.status !== "closed") {
-    res.status(409).json({ error: "Reviews can be submitted after the job is closed" });
+  if (job.status !== "completed") {
+    res.status(409).json({ error: "Reviews can be submitted after the project is completed and paid out" });
     return;
   }
 

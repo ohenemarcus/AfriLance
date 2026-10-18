@@ -329,6 +329,11 @@ export default function PaymentsPage() {
       else if (json.paymentStatus === "pending") {
         setVerifyMsg(json.message ?? "Payment is still processing. Complete checkout, then verify again.");
       }
+      else if (json.paymentStatus === "failed") {
+        sessionStorage.removeItem("pending_paystack_ref");
+        setVerifyMsg(json.message ?? "Payment did not complete. The project is awaiting funding and you can retry.");
+        queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey() });
+      }
       else {
         sessionStorage.removeItem("pending_paystack_ref");
         setVerifyMsg("Payment verified and held in escrow!");
@@ -392,7 +397,7 @@ export default function PaymentsPage() {
   };
 
   const pendingRef = typeof window !== "undefined" ? sessionStorage.getItem("pending_paystack_ref") : null;
-  const totalPending = data?.payments.filter((p) => p.status === "pending").reduce((s, p) => s + p.amount, 0) ?? 0;
+  const totalPending = data?.payments.filter((p) => p.status === "pending" || p.status === "release_pending").reduce((s, p) => s + p.amount, 0) ?? 0;
   const totalEscrowed = data?.payments.filter((p) => p.status === "escrowed").reduce((s, p) => s + p.amount, 0) ?? 0;
   const totalReleased = data?.payments.filter((p) => p.status === "released").reduce((s, p) => s + p.amount, 0) ?? 0;
 
@@ -491,7 +496,7 @@ export default function PaymentsPage() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="text-xl font-bold text-muted-foreground">{formatCurrency(totalPending)}</div>
-          <div className="text-sm text-muted-foreground">Pending</div>
+          <div className="text-sm text-muted-foreground">Processing</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="text-xl font-bold text-primary">{formatCurrency(totalEscrowed)}</div>
@@ -538,6 +543,7 @@ export default function PaymentsPage() {
                   <div className="text-sm text-muted-foreground mt-0.5">
                     {profile?.role === "freelancer" ? `From ${p.clientName ?? "Client"}` : `To ${p.freelancerName ?? "Freelancer"}`}
                   </div>
+                  {p.jobStatus && <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">Project status <StatusBadge status={p.jobStatus} /></div>}
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
                     <span>{formatRelative(p.createdAt)}</span>
                     {p.releasedAt && <span>· Released {formatDate(p.releasedAt)}</span>}
@@ -549,7 +555,7 @@ export default function PaymentsPage() {
                 <div className="text-right shrink-0">
                   <div className="text-lg font-bold text-primary">{formatCurrency(p.amount)}</div>
                   <StatusBadge status={p.status} />
-                  {p.status === "escrowed" && profile?.role === "client" && profile.id === p.clientId && (
+                  {p.status === "escrowed" && p.jobStatus === "awaiting_release" && profile?.role === "client" && profile.id === p.clientId && (
                     <button
                       onClick={() => {
                         setShowRelease(p.id);
@@ -559,9 +565,13 @@ export default function PaymentsPage() {
                       }}
                       className="mt-2 block text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
                     >
-                      Release to Freelancer
+                      Release approved payment
                     </button>
                   )}
+                  {p.status === "escrowed" && p.jobStatus !== "awaiting_release" && profile?.role === "client" && profile.id === p.clientId && (
+                    <p className="mt-2 max-w-40 text-right text-xs text-muted-foreground">Funds stay held until the freelancer submits work and you approve it.</p>
+                  )}
+                  {p.status === "release_pending" && <p className="mt-2 max-w-40 text-right text-xs text-muted-foreground">Paystack is processing this payout.</p>}
                   {p.status === "pending" && profile?.role === "client" && (
                     <button
                       onClick={() => {

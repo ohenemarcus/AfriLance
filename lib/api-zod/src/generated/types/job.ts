@@ -5,6 +5,7 @@
  * AfriLance freelance marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { JobStatus } from './jobStatus';
 
 export interface Job {
   id: number;
@@ -23,7 +24,7 @@ export interface Job {
   remote: boolean;
   /** @nullable */
   deadline?: string | null;
-  status: string;
+  status: JobStatus;
   isFlagged: boolean;
   proposalCount: number;
   /** @nullable */

@@ -29,6 +29,7 @@ import type {
   AdminUser,
   AdminUserListResponse,
   AdminVerifyUserBody,
+  ApproveJobWork200,
   AuditLogListResponse,
   ClientDashboard,
   ConversationListResponse,
@@ -44,7 +45,9 @@ import type {
   InitializePaymentResponse,
   Job,
   JobListResponse,
+  JobWorkSubmission,
   ListFreelancersParams,
+  ListJobWorkSubmissions200,
   ListJobsParams,
   ListNotificationsParams,
   Message,
@@ -62,6 +65,7 @@ import type {
   ReportMessageBody,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
+  RequestWorkRevisionBody,
   ResolveAccountResponse,
   ResolvePaystackAccountParams,
   Review,
@@ -70,6 +74,7 @@ import type {
   SavedJob,
   SavedJobListResponse,
   SendMessageBody,
+  SubmitJobWorkBody,
   TypingStatus,
   UpdateConversationTypingBody,
   UpdateJobBody,
@@ -845,6 +850,386 @@ export const useDeleteJob = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteJobMutationOptions(options));
     }
+
+export const getListJobWorkSubmissionsUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/submissions`
+}
+
+/**
+ * @summary List work submissions for a project participant
+ */
+export const listJobWorkSubmissions = async (jobId: number, options?: RequestInit): Promise<ListJobWorkSubmissions200> => {
+
+  return customFetch<ListJobWorkSubmissions200>(getListJobWorkSubmissionsUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListJobWorkSubmissionsQueryKey = (jobId: number,) => {
+    return [
+    `/api/jobs/${jobId}/submissions`
+    ] as const;
+    }
+
+
+export const getListJobWorkSubmissionsQueryOptions = <TData = Awaited<ReturnType<typeof listJobWorkSubmissions>>, TError = ErrorType<unknown>>(jobId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobWorkSubmissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJobWorkSubmissionsQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJobWorkSubmissions>>> = ({ signal }) => listJobWorkSubmissions(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJobWorkSubmissions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListJobWorkSubmissionsQueryResult = NonNullable<Awaited<ReturnType<typeof listJobWorkSubmissions>>>
+export type ListJobWorkSubmissionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List work submissions for a project participant
+ */
+
+export function useListJobWorkSubmissions<TData = Awaited<ReturnType<typeof listJobWorkSubmissions>>, TError = ErrorType<unknown>>(
+ jobId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobWorkSubmissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListJobWorkSubmissionsQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSubmitJobWorkUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/submissions`
+}
+
+/**
+ * @summary Submit project work for client review
+ */
+export const submitJobWork = async (jobId: number,
+    submitJobWorkBody: SubmitJobWorkBody, options?: RequestInit): Promise<JobWorkSubmission> => {
+
+  return customFetch<JobWorkSubmission>(getSubmitJobWorkUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(submitJobWorkBody)
+  }
+);}
+
+
+
+
+export const getSubmitJobWorkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitJobWork>>, TError,{jobId: number;data: BodyType<SubmitJobWorkBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitJobWork>>, TError,{jobId: number;data: BodyType<SubmitJobWorkBody>}, TContext> => {
+
+const mutationKey = ['submitJobWork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitJobWork>>, {jobId: number;data: BodyType<SubmitJobWorkBody>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  submitJobWork(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitJobWorkMutationResult = NonNullable<Awaited<ReturnType<typeof submitJobWork>>>
+    export type SubmitJobWorkMutationBody = BodyType<SubmitJobWorkBody>
+    export type SubmitJobWorkMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit project work for client review
+ */
+export const useSubmitJobWork = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitJobWork>>, TError,{jobId: number;data: BodyType<SubmitJobWorkBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitJobWork>>,
+        TError,
+        {jobId: number;data: BodyType<SubmitJobWorkBody>},
+        TContext
+      > => {
+      return useMutation(getSubmitJobWorkMutationOptions(options));
+    }
+
+export const getRequestJobWorkRevisionUrl = (jobId: number,
+    submissionId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/submissions/${submissionId}/revisions`
+}
+
+/**
+ * @summary Request a revision to submitted work
+ */
+export const requestJobWorkRevision = async (jobId: number,
+    submissionId: number,
+    requestWorkRevisionBody: RequestWorkRevisionBody, options?: RequestInit): Promise<JobWorkSubmission> => {
+
+  return customFetch<JobWorkSubmission>(getRequestJobWorkRevisionUrl(jobId,submissionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(requestWorkRevisionBody)
+  }
+);}
+
+
+
+
+export const getRequestJobWorkRevisionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestJobWorkRevision>>, TError,{jobId: number;submissionId: number;data: BodyType<RequestWorkRevisionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestJobWorkRevision>>, TError,{jobId: number;submissionId: number;data: BodyType<RequestWorkRevisionBody>}, TContext> => {
+
+const mutationKey = ['requestJobWorkRevision'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestJobWorkRevision>>, {jobId: number;submissionId: number;data: BodyType<RequestWorkRevisionBody>}> = (props) => {
+          const {jobId,submissionId,data} = props ?? {};
+
+          return  requestJobWorkRevision(jobId,submissionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestJobWorkRevisionMutationResult = NonNullable<Awaited<ReturnType<typeof requestJobWorkRevision>>>
+    export type RequestJobWorkRevisionMutationBody = BodyType<RequestWorkRevisionBody>
+    export type RequestJobWorkRevisionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a revision to submitted work
+ */
+export const useRequestJobWorkRevision = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestJobWorkRevision>>, TError,{jobId: number;submissionId: number;data: BodyType<RequestWorkRevisionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestJobWorkRevision>>,
+        TError,
+        {jobId: number;submissionId: number;data: BodyType<RequestWorkRevisionBody>},
+        TContext
+      > => {
+      return useMutation(getRequestJobWorkRevisionMutationOptions(options));
+    }
+
+export const getApproveJobWorkUrl = (jobId: number,
+    submissionId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/submissions/${submissionId}/approve`
+}
+
+/**
+ * @summary Approve a work submission and prepare escrow release
+ */
+export const approveJobWork = async (jobId: number,
+    submissionId: number, options?: RequestInit): Promise<ApproveJobWork200> => {
+
+  return customFetch<ApproveJobWork200>(getApproveJobWorkUrl(jobId,submissionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getApproveJobWorkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveJobWork>>, TError,{jobId: number;submissionId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveJobWork>>, TError,{jobId: number;submissionId: number}, TContext> => {
+
+const mutationKey = ['approveJobWork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveJobWork>>, {jobId: number;submissionId: number}> = (props) => {
+          const {jobId,submissionId} = props ?? {};
+
+          return  approveJobWork(jobId,submissionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveJobWorkMutationResult = NonNullable<Awaited<ReturnType<typeof approveJobWork>>>
+
+    export type ApproveJobWorkMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve a work submission and prepare escrow release
+ */
+export const useApproveJobWork = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveJobWork>>, TError,{jobId: number;submissionId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveJobWork>>,
+        TError,
+        {jobId: number;submissionId: number},
+        TContext
+      > => {
+      return useMutation(getApproveJobWorkMutationOptions(options));
+    }
+
+export const getGetJobWorkAttachmentUrl = (jobId: number,
+    submissionId: number,
+    attachmentId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/submissions/${submissionId}/attachments/${attachmentId}`
+}
+
+/**
+ * @summary Download a project work attachment as a participant
+ */
+export const getJobWorkAttachment = async (jobId: number,
+    submissionId: number,
+    attachmentId: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetJobWorkAttachmentUrl(jobId,submissionId,attachmentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobWorkAttachmentQueryKey = (jobId: number,
+    submissionId: number,
+    attachmentId: number,) => {
+    return [
+    `/api/jobs/${jobId}/submissions/${submissionId}/attachments/${attachmentId}`
+    ] as const;
+    }
+
+
+export const getGetJobWorkAttachmentQueryOptions = <TData = Awaited<ReturnType<typeof getJobWorkAttachment>>, TError = ErrorType<unknown>>(jobId: number,
+    submissionId: number,
+    attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobWorkAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobWorkAttachmentQueryKey(jobId,submissionId,attachmentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobWorkAttachment>>> = ({ signal }) => getJobWorkAttachment(jobId,submissionId,attachmentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined && submissionId !== null && submissionId !== undefined && attachmentId !== null && attachmentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobWorkAttachment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobWorkAttachmentQueryResult = NonNullable<Awaited<ReturnType<typeof getJobWorkAttachment>>>
+export type GetJobWorkAttachmentQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Download a project work attachment as a participant
+ */
+
+export function useGetJobWorkAttachment<TData = Awaited<ReturnType<typeof getJobWorkAttachment>>, TError = ErrorType<unknown>>(
+ jobId: number,
+    submissionId: number,
+    attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobWorkAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobWorkAttachmentQueryOptions(jobId,submissionId,attachmentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListMyJobsUrl = () => {
 

@@ -431,12 +431,25 @@ function ClientDashboard({ profile }: { profile: Profile }) {
           </div>
         </div>
         <div className="bg-secondary text-primary rounded-xl p-5">
-          <h3 className="font-semibold mb-1">Active now</h3>
-          <div className="text-4xl font-bold">{data.inProgressJobs}</div>
-          <div className="text-sm text-primary/70">Jobs in progress</div>
-          <div className="mt-3 text-sm">
-            {data.openJobs} job{data.openJobs !== 1 ? "s" : ""} still open
-          </div>
+          <h3 className="font-semibold">Project pipeline</h3>
+          <p className="mt-1 text-xs text-primary/70">See what needs attention next.</p>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+            {[
+              { label: "Open listings", value: data.openJobs },
+              { label: "Awaiting funding", value: data.awaitingFundingJobs },
+              { label: "Payment processing", value: data.paymentPendingJobs },
+              { label: "In progress", value: data.inProgressJobs },
+              { label: "Needs your review", value: data.awaitingApprovalJobs },
+              { label: "Approved · payout", value: data.awaitingReleaseJobs },
+              { label: "Completed", value: data.completedJobs },
+              { label: "Cancelled", value: data.cancelledJobs },
+            ].map((stage) => (
+              <div key={stage.label}>
+                <dd className="text-2xl font-bold">{stage.value}</dd>
+                <dt className="text-xs text-primary/70">{stage.label}</dt>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </div>

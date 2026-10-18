@@ -108,10 +108,9 @@ export default function NotificationsPage() {
     const relatedId = notification.relatedId;
     switch (notification.type) {
       case "proposal_accepted":
-        if (relatedId == null) return "/messages";
-        return notification.relatedType === "conversation"
-          ? `/messages?conversation=${relatedId}`
-          : `/messages?proposal=${relatedId}`;
+        if (notification.relatedType === "job" && relatedId != null) return `/jobs/${relatedId}`;
+        if (notification.relatedType === "conversation" && relatedId != null) return `/messages?conversation=${relatedId}`;
+        return relatedId == null ? "/messages" : `/messages?proposal=${relatedId}`;
       case "new_message":
         return relatedId == null ? "/messages" : `/messages?conversation=${relatedId}`;
       case "new_proposal":
@@ -128,7 +127,21 @@ export default function NotificationsPage() {
       case "payment_escrowed":
       case "payment_released":
       case "payment_dispute":
+      case "payment_processing":
+      case "payment_release_failed":
         return "/payments";
+      case "payment_failed":
+        return notification.relatedType === "job" && relatedId != null
+          ? `/jobs/${relatedId}`
+          : "/payments";
+      case "job_funded":
+      case "job_in_progress":
+      case "work_submitted":
+      case "work_revision_requested":
+      case "work_approved":
+      case "job_completed":
+      case "hire_cancelled":
+        return notification.relatedId == null ? "/dashboard" : `/jobs/${notification.relatedId}`;
       case "id_verified":
       case "id_rejected":
       case "top_rated":

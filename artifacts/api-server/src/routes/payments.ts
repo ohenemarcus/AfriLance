@@ -31,6 +31,7 @@ function enrichPayment(
   return {
     ...p,
     jobTitle: job?.title ?? null,
+    jobStatus: job?.status ?? null,
     freelancerName: freelancer?.name ?? null,
     clientName: client?.name ?? null,
     releasedAt: p.releasedAt?.toISOString() ?? null,
@@ -110,25 +111,44 @@ router.post("/payments", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Payments can only be started for the freelancer whose proposal you accepted" });
     return;
   }
+  if (job.status !== "open" && job.status !== "awaiting_funding") {
+    res.status(409).json({ error: "This project is not awaiting funding" });
+    return;
+  }
   if (Math.abs(amount - acceptedProposal.bidAmount) > 0.01) {
     res.status(400).json({ error: "Payment amount must match the accepted proposal bid" });
     return;
   }
 
+  const [activePayment] = await db.select({ id: paymentsTable.id }).from(paymentsTable).where(and(
+    eq(paymentsTable.jobId, jobId),
+    or(eq(paymentsTable.status, "pending"), eq(paymentsTable.status, "escrowed"), eq(paymentsTable.status, "release_pending")),
+  )).limit(1);
+  if (activePayment) {
+    res.status(409).json({ error: "A payment is already pending or funded for this project" });
+    return;
+  }
+
   const reference = generateReference("afl");
 
-  const [payment] = await db
-    .insert(paymentsTable)
-    .values({
+  const payment = await db.transaction(async (tx) => {
+    const [claimedJob] = await tx.update(jobsTable)
+      .set({ status: "payment_pending", updatedAt: new Date() })
+      .where(and(eq(jobsTable.id, jobId), eq(jobsTable.status, job.status)))
+      .returning({ id: jobsTable.id });
+    if (!claimedJob) return null;
+    const [created] = await tx.insert(paymentsTable).values({
       jobId,
       clientId: profile.id,
       freelancerId,
       amount,
       status: "pending",
       paystackReference: reference,
-    })
-    .returning();
-  await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "pending", note: "Payment initialized" });
+    }).returning();
+    await tx.insert(paymentStatusHistoryTable).values({ paymentId: created.id, status: "pending", note: "Payment initialized" });
+    return created;
+  });
+  if (!payment) { res.status(409).json({ error: "The project status changed. Refresh and try again." }); return; }
 
   try {
     const txn = await initializeTransaction({
@@ -153,6 +173,8 @@ router.post("/payments", async (req, res): Promise<void> => {
   } catch (err: any) {
     await db.update(paymentsTable).set({ status: "failed", updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
     await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "failed", note: "Payment initialization failed" });
+    await db.update(jobsTable).set({ status: "awaiting_funding", updatedAt: new Date() })
+      .where(and(eq(jobsTable.id, jobId), eq(jobsTable.status, "payment_pending")));
     req.log.error({ err }, "Paystack initialization failed");
     res.status(502).json({ error: "Payment gateway error. Please try again." });
   }
@@ -174,7 +196,7 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
 
   if (!payment) { res.status(404).json({ error: "Payment not found" }); return; }
 
-  if (payment.status === "escrowed" || payment.status === "released") {
+  if (payment.status === "escrowed" || payment.status === "release_pending" || payment.status === "released") {
     const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, payment.jobId));
     const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, payment.freelancerId));
     const [client] = await db.select().from(profilesTable).where(eq(profilesTable.id, payment.clientId));
@@ -188,8 +210,15 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
     if (txn.status !== "success") {
       const stillProcessing = txn.status === "pending" || txn.status === "ongoing";
       if (!stillProcessing) {
-        await db.update(paymentsTable).set({ status: "failed", updatedAt: new Date() }).where(eq(paymentsTable.id, payment.id));
-        await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "failed", note: `Paystack verification returned ${txn.status}` });
+        const [failedPayment] = await db.update(paymentsTable)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(and(eq(paymentsTable.id, payment.id), eq(paymentsTable.status, "pending")))
+          .returning();
+        if (failedPayment) {
+          await db.insert(paymentStatusHistoryTable).values({ paymentId: payment.id, status: "failed", note: `Paystack verification returned ${txn.status}` });
+          await db.update(jobsTable).set({ status: "awaiting_funding", updatedAt: new Date() })
+            .where(and(eq(jobsTable.id, payment.jobId), eq(jobsTable.status, "payment_pending")));
+        }
       }
       res.json({
         status: txn.status,
@@ -216,9 +245,25 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
     const [updated] = await db
       .update(paymentsTable)
       .set({ status: "escrowed", updatedAt: new Date() })
-      .where(eq(paymentsTable.id, payment.id))
+      .where(and(eq(paymentsTable.id, payment.id), eq(paymentsTable.status, "pending")))
       .returning();
+    if (!updated) {
+      const [currentPayment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, payment.id));
+      if (currentPayment) {
+        const [currentJob] = await db.select().from(jobsTable).where(eq(jobsTable.id, currentPayment.jobId));
+        const [currentFreelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, currentPayment.freelancerId));
+        const [currentClient] = await db.select().from(profilesTable).where(eq(profilesTable.id, currentPayment.clientId));
+        res.json(enrichPayment(currentPayment, currentJob, currentFreelancer, currentClient));
+        return;
+      }
+      res.status(404).json({ error: "Payment not found" });
+      return;
+    }
     await db.insert(paymentStatusHistoryTable).values({ paymentId: updated.id, status: "escrowed", note: "Payment verified and placed in escrow", changedBy: payment.clientId });
+    const [startedJob] = await db.update(jobsTable)
+      .set({ status: "in_progress", updatedAt: new Date() })
+      .where(and(eq(jobsTable.id, updated.jobId), or(eq(jobsTable.status, "payment_pending"), eq(jobsTable.status, "awaiting_funding"), eq(jobsTable.status, "open"))))
+      .returning();
 
     const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, updated.jobId));
     const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, updated.freelancerId));
@@ -227,12 +272,22 @@ router.get("/payments/verify/:reference", async (req, res): Promise<void> => {
     // Notify freelancer that funds are now in escrow
     await db.insert(notificationsTable).values({
       userId: updated.freelancerId,
-      type: "payment_escrowed",
-      title: "Payment placed in escrow",
-      body: `${client?.name ?? "A client"} has placed ${formatGHS(updated.amount)} in escrow for "${job?.title ?? "your project"}". You can begin working now.`,
+      type: "job_funded",
+      title: "Project funded — work can begin",
+      body: `${client?.name ?? "A client"} has funded "${job?.title ?? "your project"}". You can begin work now.`,
       relatedId: updated.id,
       relatedType: "payment",
     });
+    if (startedJob) {
+      await db.insert(notificationsTable).values({
+        userId: updated.clientId,
+        type: "job_in_progress",
+        title: "Project is in progress",
+        body: `Payment is confirmed for "${job?.title ?? "your project"}". The freelancer can begin work.`,
+        relatedId: updated.jobId,
+        relatedType: "job",
+      });
+    }
 
     res.json(enrichPayment(updated, job, freelancer, client));
   } catch (err: any) {
@@ -264,6 +319,12 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
     return;
   }
 
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, existing.jobId));
+  if (!job || job.status !== "awaiting_release") {
+    res.status(409).json({ error: "The client must approve the submitted work before releasing payment" });
+    return;
+  }
+
   const parsed = z.object({
     recipientCode: z.string().optional(),
     accountNumber: z.string().optional(),
@@ -273,6 +334,7 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
 
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  let transferRef: string | null = null;
   try {
     let recipientCode = existing.freelancerRecipientCode ?? parsed.data.recipientCode;
 
@@ -296,7 +358,14 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
       return;
     }
 
-    const transferRef = generateReference("trf");
+    transferRef = generateReference("trf");
+    const [reserved] = await db.update(paymentsTable)
+      .set({ status: "release_pending", paystackTransferReference: transferRef, updatedAt: new Date() })
+      .where(and(eq(paymentsTable.id, id), eq(paymentsTable.status, "escrowed")))
+      .returning();
+    if (!reserved) { res.status(409).json({ error: "Payment status changed. Refresh and try again." }); return; }
+    await db.insert(paymentStatusHistoryTable).values({ paymentId: reserved.id, status: "release_pending", note: "Client approved work; Paystack transfer initiated", changedBy: profile.id });
+
     const transferCode = await initiateTransfer({
       recipientCode,
       amount: existing.amount,
@@ -304,44 +373,49 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
       reference: transferRef,
     });
 
-    const [updated] = await db
+    const [storedTransfer] = await db
       .update(paymentsTable)
-      .set({
-        status: "released",
-        releasedAt: new Date(),
-        paystackTransferCode: transferCode,
-        updatedAt: new Date(),
-      })
-      .where(eq(paymentsTable.id, id))
+      .set({ paystackTransferCode: transferCode, updatedAt: new Date() })
+      .where(and(
+        eq(paymentsTable.id, id),
+        eq(paymentsTable.status, "release_pending"),
+        eq(paymentsTable.paystackTransferReference, transferRef),
+      ))
       .returning();
-    await db.insert(paymentStatusHistoryTable).values({ paymentId: updated.id, status: "released", note: "Escrow released to freelancer", changedBy: profile.id });
+    const [currentPayment] = storedTransfer
+      ? [storedTransfer]
+      : await db.select().from(paymentsTable).where(eq(paymentsTable.id, id));
+    if (!currentPayment || (currentPayment.status !== "release_pending" && currentPayment.status !== "released")) {
+      res.status(409).json({ error: "Payment status changed. Refresh and try again." });
+      return;
+    }
 
-    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, updated.jobId));
-    const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, updated.freelancerId));
-    const [client] = await db.select().from(profilesTable).where(eq(profilesTable.id, updated.clientId));
+    const [updatedJob] = await db.select().from(jobsTable).where(eq(jobsTable.id, currentPayment.jobId));
+    const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, currentPayment.freelancerId));
+    const [client] = await db.select().from(profilesTable).where(eq(profilesTable.id, currentPayment.clientId));
 
-    // Notify freelancer that payment has been released
-    await db.insert(notificationsTable).values({
-      userId: updated.freelancerId,
-      type: "payment_released",
-      title: "Payment released to your account!",
-      body: `${formatGHS(updated.amount)} from "${job?.title ?? "your project"}" has been transferred to your bank account. Check your balance shortly.`,
-      relatedId: updated.id,
-      relatedType: "payment",
-    });
+    if (currentPayment.status === "release_pending") {
+      await db.insert(notificationsTable).values([
+        { userId: currentPayment.freelancerId, type: "payment_processing", title: "Payout is processing", body: `The client approved "${updatedJob?.title ?? "your project"}". Your payout is being processed.`, relatedId: currentPayment.id, relatedType: "payment" },
+        { userId: currentPayment.clientId, type: "payment_processing", title: "Payout is processing", body: `Your approval for "${updatedJob?.title ?? "your project"}" was received. Paystack is processing the transfer.`, relatedId: currentPayment.id, relatedType: "payment" },
+      ]);
+    }
 
-    // Notify client that release was successful
-    await db.insert(notificationsTable).values({
-      userId: updated.clientId,
-      type: "payment_released",
-      title: "Payment successfully released",
-      body: `You've successfully released ${formatGHS(updated.amount)} to ${freelancer?.name ?? "the freelancer"} for "${job?.title ?? "your project"}".`,
-      relatedId: updated.id,
-      relatedType: "payment",
-    });
-
-    res.json(enrichPayment(updated, job, freelancer, client));
+    res.json(enrichPayment(currentPayment, updatedJob, freelancer, client));
   } catch (err: any) {
+    if (transferRef) {
+      const [restored] = await db.update(paymentsTable)
+        .set({ status: "escrowed", paystackTransferReference: null, updatedAt: new Date() })
+        .where(and(
+          eq(paymentsTable.id, id),
+          eq(paymentsTable.status, "release_pending"),
+          eq(paymentsTable.paystackTransferReference, transferRef),
+        ))
+        .returning({ id: paymentsTable.id });
+      if (restored) {
+        await db.insert(paymentStatusHistoryTable).values({ paymentId: id, status: "escrowed", note: "Payout initiation failed; funds remain in escrow", changedBy: profile.id });
+      }
+    }
     req.log.error({ err }, "Paystack transfer failed");
     const msg = err?.response?.data?.message ?? "Transfer failed. Please try again.";
     res.status(502).json({ error: msg });

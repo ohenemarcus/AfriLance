@@ -296,6 +296,144 @@ paths:
         "204":
           description: Deleted
 
+  /jobs/{jobId}/submissions:
+    get:
+      operationId: listJobWorkSubmissions
+      tags: [jobs]
+      summary: List work submissions for a project participant
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Work submission history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JobWorkSubmission"
+                required: [submissions]
+    post:
+      operationId: submitJobWork
+      tags: [jobs]
+      summary: Submit project work for client review
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitJobWorkBody"
+      responses:
+        "201":
+          description: Work submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobWorkSubmission"
+
+  /jobs/{jobId}/submissions/{submissionId}/revisions:
+    post:
+      operationId: requestJobWorkRevision
+      tags: [jobs]
+      summary: Request a revision to submitted work
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestWorkRevisionBody"
+      responses:
+        "200":
+          description: Revision requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobWorkSubmission"
+
+  /jobs/{jobId}/submissions/{submissionId}/approve:
+    post:
+      operationId: approveJobWork
+      tags: [jobs]
+      summary: Approve a work submission and prepare escrow release
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Work approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission:
+                    $ref: "#/components/schemas/JobWorkSubmission"
+                  jobStatus:
+                    type: string
+                required: [submission, jobStatus]
+
+  /jobs/{jobId}/submissions/{submissionId}/attachments/{attachmentId}:
+    get:
+      operationId: getJobWorkAttachment
+      tags: [jobs]
+      summary: Download a project work attachment as a participant
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attachment content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
   /jobs/my:
     get:
       operationId: listMyJobs
@@ -1230,6 +1368,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
+          enum: [open, awaiting_funding, payment_pending, in_progress, awaiting_approval, awaiting_release, completed, cancelled, closed]
         isFlagged:
           type: boolean
         proposalCount:
@@ -1317,6 +1456,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
+          enum: [closed]
 
     JobListResponse:
       type: object
@@ -1330,6 +1470,80 @@ components:
       required:
         - jobs
         - total
+
+    JobWorkAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        submissionId:
+          type: integer
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        contentType:
+          type: string
+        createdAt:
+          type: string
+      required: [id, submissionId, objectPath, fileName, contentType, createdAt]
+
+    JobWorkSubmission:
+      type: object
+      properties:
+        id:
+          type: integer
+        jobId:
+          type: integer
+        freelancerId:
+          type: integer
+        note:
+          type: string
+        status:
+          type: string
+          enum: [awaiting_approval, revision_requested, approved]
+        revisionNote:
+          type: [string, "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobWorkAttachment"
+      required: [id, jobId, freelancerId, note, status, createdAt, updatedAt, attachments]
+
+    SubmitJobWorkBody:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 10
+          maxLength: 5000
+        attachments:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              objectPath:
+                type: string
+              fileName:
+                type: string
+              contentType:
+                type: string
+            required: [objectPath, fileName, contentType]
+      required: [note]
+
+    RequestWorkRevisionBody:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 5
+          maxLength: 2000
+      required: [note]
 
     Proposal:
       type: object
@@ -1394,6 +1608,7 @@ components:
       properties:
         status:
           type: string
+          enum: [under_review, accepted, rejected]
       required:
         - status
 
@@ -1675,6 +1890,18 @@ components:
           type: integer
         inProgressJobs:
           type: integer
+        awaitingFundingJobs:
+          type: integer
+        paymentPendingJobs:
+          type: integer
+        awaitingApprovalJobs:
+          type: integer
+        awaitingReleaseJobs:
+          type: integer
+        completedJobs:
+          type: integer
+        cancelledJobs:
+          type: integer
         closedJobs:
           type: integer
         totalProposalsReceived:
@@ -1693,6 +1920,12 @@ components:
         - totalJobs
         - openJobs
         - inProgressJobs
+        - awaitingFundingJobs
+        - paymentPendingJobs
+        - awaitingApprovalJobs
+        - awaitingReleaseJobs
+        - completedJobs
+        - cancelledJobs
         - closedJobs
         - totalProposalsReceived
         - totalSpent
@@ -1717,9 +1950,13 @@ components:
           type: string
         paystackReference:
           type: ["string", "null"]
+        paystackTransferReference:
+          type: ["string", "null"]
         paystackTransferCode:
           type: ["string", "null"]
         jobTitle:
+          type: ["string", "null"]
+        jobStatus:
           type: ["string", "null"]
         freelancerName:
           type: ["string", "null"]

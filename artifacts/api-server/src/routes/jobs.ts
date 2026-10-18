@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, ilike, and, gte, lte, sql, or, asc, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, jobsTable, profilesTable } from "@workspace/db";
+import { db, jobsTable, profilesTable, proposalsTable } from "@workspace/db";
 import { isAdminUser } from "../lib/adminAccess";
 import {
   ListJobsQueryParams,
@@ -261,6 +261,20 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
   if (existing.clientId !== profile.id && !isAdmin) {
     res.status(403).json({ error: "Forbidden" });
     return;
+  }
+  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+    if (parsed.data.status !== "closed" || existing.status !== "open") {
+      res.status(409).json({ error: "Project status is controlled by the hiring and payment workflow" });
+      return;
+    }
+    const [acceptedProposal] = await db.select({ id: proposalsTable.id }).from(proposalsTable).where(and(
+      eq(proposalsTable.jobId, existing.id),
+      eq(proposalsTable.status, "accepted"),
+    )).limit(1);
+    if (acceptedProposal) {
+      res.status(409).json({ error: "A job with an accepted freelancer cannot be closed as a listing" });
+      return;
+    }
   }
 
   const [job] = await db

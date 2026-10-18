@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq, and, or, sql, inArray, ne } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, proposalsTable, profilesTable, jobsTable, notificationsTable, conversationsTable } from "@workspace/db";
 import {
@@ -199,6 +199,7 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Proposal not found" });
     return;
   }
+  const existingJob = existingRow.job;
   if (existingRow.job.clientId !== actorProfile.id) {
     res.status(403).json({ error: "Only the job owner can update proposal status" });
     return;
@@ -209,19 +210,64 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db
-    .update(proposalsTable)
-    .set({ status: parsed.data.status, updatedAt: new Date() })
-    .where(eq(proposalsTable.id, params.data.id))
-    .returning();
+  const jobTitle = existingRow?.job?.title ?? "a job";
+  const isAccepted = parsed.data.status === "accepted";
+  if (isAccepted) {
+    if (existingRow.job.status !== "open") {
+      res.status(409).json({ error: "This job is no longer accepting a freelancer" });
+      return;
+    }
+    const [alreadyAccepted] = await db.select({ id: proposalsTable.id }).from(proposalsTable).where(and(
+      eq(proposalsTable.jobId, existingRow.job.id),
+      eq(proposalsTable.status, "accepted"),
+    )).limit(1);
+    if (alreadyAccepted && alreadyAccepted.id !== existingRow.proposal.id) {
+      res.status(409).json({ error: "Another freelancer has already been accepted for this job" });
+      return;
+    }
+  }
 
-  if (!updated) {
-    res.status(404).json({ error: "Proposal not found" });
+  let updateResult;
+  try {
+    updateResult = await db.transaction(async (tx) => {
+      if (isAccepted) {
+        const [job] = await tx.update(jobsTable)
+          .set({ status: "awaiting_funding", updatedAt: new Date() })
+          .where(and(eq(jobsTable.id, existingJob.id), eq(jobsTable.status, "open")))
+          .returning({ id: jobsTable.id });
+        if (!job) return null;
+      }
+
+      const [updated] = await tx.update(proposalsTable)
+        .set({ status: parsed.data.status, updatedAt: new Date() })
+        .where(eq(proposalsTable.id, params.data.id))
+        .returning();
+      if (!updated) return null;
+
+      const superseded = isAccepted
+        ? await tx.update(proposalsTable)
+            .set({ status: "rejected", updatedAt: new Date() })
+            .where(and(
+              eq(proposalsTable.jobId, existingJob.id),
+              ne(proposalsTable.id, updated.id),
+              inArray(proposalsTable.status, ["submitted", "under_review"]),
+            ))
+            .returning({ freelancerId: proposalsTable.freelancerId })
+        : [];
+
+      return { updated, superseded };
+    });
+  } catch (error) {
+    req.log.error({ err: error, proposalId: params.data.id }, "Proposal status update failed");
+    res.status(500).json({ error: "Could not update proposal status" });
     return;
   }
 
-  const jobTitle = existingRow?.job?.title ?? "a job";
-  const isAccepted = parsed.data.status === "accepted";
+  if (!updateResult) {
+    res.status(isAccepted ? 409 : 404).json({ error: isAccepted ? "Another action changed this job. Refresh and try again." : "Proposal not found" });
+    return;
+  }
+  const { updated, superseded } = updateResult;
   let acceptedConversationId: number | null = null;
 
   if (isAccepted && existingRow.job) {
@@ -257,9 +303,9 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
       userId: updated.freelancerId,
       type: "proposal_accepted",
       title: "Proposal accepted!",
-      body: `Your proposal for "${jobTitle}" was accepted. Open the conversation to coordinate next steps.`,
-      relatedId: acceptedConversationId,
-      relatedType: "conversation",
+      body: `Your proposal for "${jobTitle}" was accepted. Open the conversation to coordinate, but wait for payment confirmation before starting work.`,
+      relatedId: existingJob.id,
+      relatedType: "job",
     });
   } else if (parsed.data.status === "rejected") {
     await db.insert(notificationsTable).values({
@@ -293,6 +339,16 @@ router.patch("/proposals/:id", async (req, res): Promise<void> => {
       relatedId: acceptedConversationId,
       relatedType: "conversation",
     });
+    if (superseded.length) {
+      await db.insert(notificationsTable).values(superseded.map((proposal) => ({
+        userId: proposal.freelancerId,
+        type: "proposal_rejected",
+        title: "This job is no longer accepting proposals",
+        body: `The client selected another freelancer for "${jobTitle}".`,
+        relatedId: existingJob.id,
+        relatedType: "job",
+      })));
+    }
   }
 
   res.json(enrichProposal(updated, null, null));
