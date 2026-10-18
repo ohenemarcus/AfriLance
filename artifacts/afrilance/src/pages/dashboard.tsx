@@ -66,7 +66,7 @@ function ProfileCompletenessWidget({ profile }: { profile: Profile })
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="font-semibold text-foreground">Profile Completeness</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">A complete profile gets 3× more views</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Help clients understand your skills and experience.</p>
         </div>
         <span className={`text-2xl font-bold ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-destructive"}`}>
           {pct}%
@@ -99,6 +99,58 @@ function ProfileCompletenessWidget({ profile }: { profile: Profile })
         Complete Your Profile →
       </Link>
     </div>
+  );
+}
+
+function GettingStartedChecklist({
+  role,
+  profile,
+  firstActionComplete,
+}: {
+  role: "client" | "freelancer";
+  profile: Profile;
+  firstActionComplete: boolean;
+}) {
+  const profileComplete = role === "freelancer"
+    ? !!profile.name?.trim() && !!profile.bio?.trim() && !!profile.location?.trim() && !!profile.category && (profile.skills?.length ?? 0) > 0 && profile.hourlyRate != null && (profile.portfolioItems?.length ?? 0) > 0
+    : !!profile.name?.trim() && !!profile.bio?.trim() && !!profile.location?.trim();
+  const steps = role === "freelancer"
+    ? [
+        { label: "Complete your freelancer profile", description: "Add your skills, experience, rates, and work samples.", href: "/settings", action: "Edit profile", complete: profileComplete },
+        { label: "Send your first proposal", description: "Browse open projects and apply to work that fits your skills.", href: "/jobs", action: "Browse jobs", complete: firstActionComplete },
+      ]
+    : [
+        { label: "Complete your client profile", description: "Add your location and a short introduction for freelancers.", href: "/settings", action: "Edit profile", complete: profileComplete },
+        { label: "Post your first job", description: "Describe the work, skills, budget, and expected timeline.", href: "/jobs/post", action: "Post a job", complete: firstActionComplete },
+      ];
+  const completedCount = steps.filter((step) => step.complete).length;
+
+  return (
+    <section aria-labelledby="getting-started-title" className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="getting-started-title" className="font-semibold text-foreground">Your next steps</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{completedCount} of {steps.length} setup steps complete</p>
+        </div>
+        <Link to="/guide" className="text-sm font-medium text-primary hover:underline">How to use AfriLance</Link>
+      </div>
+      <div className="mt-4 space-y-3">
+        {steps.map((step) => (
+          <div key={step.label} className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span aria-label={step.complete ? "Completed" : "Not completed"} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${step.complete ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40 text-transparent"}`}>
+                ✓
+              </span>
+              <div>
+                <h3 className={`text-sm font-medium ${step.complete ? "text-muted-foreground" : "text-foreground"}`}>{step.label}</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">{step.description}</p>
+              </div>
+            </div>
+            {!step.complete && <Link to={step.href} className="ml-8 text-sm font-semibold text-primary hover:underline">{step.action}</Link>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -184,6 +236,7 @@ function FreelancerDashboard({ profile }: { profile: NonNullable<ReturnType<type
     <div className="space-y-6">
       {/* Profile completeness */}
       <ProfileCompletenessWidget profile={profile} />
+      <GettingStartedChecklist role="freelancer" profile={profile} firstActionComplete={(data?.totalApplications ?? 0) > 0} />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
@@ -293,7 +346,7 @@ function FreelancerDashboard({ profile }: { profile: NonNullable<ReturnType<type
   );
 }
 
-function ClientDashboard() {
+function ClientDashboard({ profile }: { profile: Profile }) {
   const { data, isLoading } = useGetClientDashboard({
     query: { queryKey: getGetClientDashboardQueryKey() },
   });
@@ -313,6 +366,7 @@ function ClientDashboard() {
 
   return (
     <div className="space-y-6">
+      <GettingStartedChecklist role="client" profile={profile} firstActionComplete={data.totalJobs > 0} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Total Jobs" value={data.totalJobs} />
         <StatCard label="Open Jobs" value={data.openJobs} />
@@ -415,7 +469,7 @@ export default function DashboardPage() {
       </div>
 
       {profile?.role === "freelancer" && <FreelancerDashboard profile={profile} />}
-      {profile?.role === "client" && <ClientDashboard />}
+      {profile?.role === "client" && <ClientDashboard profile={profile} />}
       {profile?.role === "admin" && (
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <p className="text-muted-foreground mb-4">You have admin access to this platform.</p>

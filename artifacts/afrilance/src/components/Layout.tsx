@@ -185,6 +185,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         >
                           Help &amp; Support
                         </Link>
+                        <Link
+                          to="/guide"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-accent"
+                        >
+                          How to use AfriLance
+                        </Link>
                         <div className="border-t border-border my-1" />
                         <button
                           onClick={() => { setDropdownOpen(false); signOut({ redirectUrl: basePath + "/" }); }}
@@ -275,6 +282,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/support" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
                   Help &amp; Support
                 </Link>
+                <Link to="/guide" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
+                  How to use AfriLance
+                </Link>
                 {canModerate && (
                   <Link to="/admin" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
                     {profile?.role === "admin" ? "Admin" : "Moderator"}
@@ -312,6 +322,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <p className="font-semibold text-primary-foreground">Platform</p>
                 <Link to="/jobs" className="block hover:text-secondary transition-colors">Find Work</Link>
                 <Link to="/freelancers" className="block hover:text-secondary transition-colors">Find Talent</Link>
+                <Link to="/guide" className="block hover:text-secondary transition-colors">How it works</Link>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-primary-foreground">Account</p>

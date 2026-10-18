@@ -29,6 +29,7 @@ import AdminPage from "@/pages/admin";
 import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import SupportPage from "@/pages/support";
+import GuidePage from "@/pages/guide";
 import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@workspace/api-zod";
 
 const LEGAL_SIGNUP_CONSENT_KEY = "afrilance-legal-consent-pending";
@@ -252,7 +253,7 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-  const isPublicLegalOrAuthPage = ["/terms", "/privacy", "/support", "/sign-in", "/sign-up"].includes(path);
+  const isPublicLegalOrAuthPage = ["/terms", "/privacy", "/support", "/guide", "/sign-in", "/sign-up"].includes(path);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || isPublicLegalOrAuthPage) {
@@ -481,6 +482,7 @@ function Router() {
       <Route path="/terms" component={TermsPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/support"><Layout><SupportPage /></Layout></Route>
+      <Route path="/guide"><Layout><GuidePage /></Layout></Route>
       <Route path="/" component={HomeRoute} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
