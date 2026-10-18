@@ -653,10 +653,14 @@ export const MarkAllNotificationsReadResponse = zod.unknown()
 /**
  * @summary Create a review for a completed job
  */
+export const createReviewBodyRatingMax = 5;
+
+
+
 export const CreateReviewBody = zod.object({
   "jobId": zod.number(),
   "revieweeId": zod.number(),
-  "rating": zod.number(),
+  "rating": zod.number().min(1).max(createReviewBodyRatingMax),
   "comment": zod.string().nullish()
 })
 
@@ -670,13 +674,17 @@ export const ListProfileReviewsParams = zod.object({
   "profileId": zod.coerce.number()
 })
 
+export const listProfileReviewsResponseReviewsItemRatingMax = 5;
+
+
+
 export const ListProfileReviewsResponse = zod.object({
   "reviews": zod.array(zod.object({
   "id": zod.number(),
   "jobId": zod.number(),
   "reviewerId": zod.number(),
   "revieweeId": zod.number(),
-  "rating": zod.number(),
+  "rating": zod.number().min(1).max(listProfileReviewsResponseReviewsItemRatingMax),
   "comment": zod.string().nullish(),
   "reviewerName": zod.string().nullish(),
   "reviewerAvatarUrl": zod.string().nullish(),

@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq, avg, count, sql } from "drizzle-orm";
+import { eq, avg, count, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, reviewsTable, profilesTable } from "@workspace/db";
+import { db, reviewsTable, profilesTable, jobsTable, proposalsTable } from "@workspace/db";
 import {
   CreateReviewBody,
   ListProfileReviewsParams,
@@ -37,11 +37,62 @@ router.post("/reviews", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (
+    !Number.isInteger(parsed.data.jobId) || parsed.data.jobId <= 0 ||
+    !Number.isInteger(parsed.data.revieweeId) || parsed.data.revieweeId <= 0 ||
+    !Number.isInteger(parsed.data.rating) || parsed.data.rating < 1 || parsed.data.rating > 5
+  ) {
+    res.status(400).json({ error: "Review requires a valid job, reviewee, and a rating from 1 to 5" });
+    return;
+  }
+
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, parsed.data.jobId));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status !== "closed") {
+    res.status(409).json({ error: "Reviews can be submitted after the job is closed" });
+    return;
+  }
+
+  const [acceptedProposal] = await db.select().from(proposalsTable).where(and(
+    eq(proposalsTable.jobId, job.id),
+    eq(proposalsTable.status, "accepted"),
+  )).limit(1);
+  if (!acceptedProposal) {
+    res.status(409).json({ error: "This job has no accepted freelancer to review" });
+    return;
+  }
+
+  const expectedRevieweeId = profile.id === job.clientId
+    ? acceptedProposal.freelancerId
+    : profile.id === acceptedProposal.freelancerId
+      ? job.clientId
+      : null;
+  if (expectedRevieweeId === null || parsed.data.revieweeId !== expectedRevieweeId) {
+    res.status(403).json({ error: "Only the client and accepted freelancer can review each other for this job" });
+    return;
+  }
+
+  const [existingReview] = await db.select({ id: reviewsTable.id }).from(reviewsTable).where(and(
+    eq(reviewsTable.jobId, job.id),
+    eq(reviewsTable.reviewerId, profile.id),
+  )).limit(1);
+  if (existingReview) {
+    res.status(409).json({ error: "You have already reviewed this job" });
+    return;
+  }
 
   const [review] = await db
     .insert(reviewsTable)
     .values({ ...parsed.data, reviewerId: profile.id })
+    .onConflictDoNothing({ target: [reviewsTable.jobId, reviewsTable.reviewerId] })
     .returning();
+  if (!review) {
+    res.status(409).json({ error: "You have already reviewed this job" });
+    return;
+  }
 
   // Update reviewee avg rating
   const [stats] = await db

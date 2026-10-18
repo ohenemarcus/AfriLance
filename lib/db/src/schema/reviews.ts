@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -16,7 +17,9 @@ export const reviewsTable = pgTable("reviews", {
   rating: integer("rating").notNull(),
   comment: text("comment"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("reviews_job_reviewer_unique_idx").on(table.jobId, table.reviewerId),
+]);
 
 export const insertReviewSchema = createInsertSchema(reviewsTable).omit({
   id: true,

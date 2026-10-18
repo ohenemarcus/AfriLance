@@ -5,11 +5,13 @@ import {
   useGetMyProfile,
   useCreateProposal,
   useListJobProposals,
+  useListMyProposals,
   useUpdateProposalStatus,
   useUpdateJob,
   useListProfileReviews,
   getGetJobQueryKey,
   getListJobProposalsQueryKey,
+  getListMyProposalsQueryKey,
   getGetMyProfileQueryKey,
   getListProfileReviewsQueryKey,
 } from "@workspace/api-client-react";
@@ -48,6 +50,12 @@ export default function JobDetailPage() {
     },
   });
   const acceptedProposal = proposalsData?.proposals.find((p) => p.status === "accepted");
+  const { data: myProposalsData } = useListMyProposals({
+    query: {
+      enabled: isValidJobId && !!job && authLoaded && isSignedIn === true && profile?.role === "freelancer",
+      queryKey: getListMyProposalsQueryKey(),
+    },
+  });
 
   const { data: freelancerReviews } = useListProfileReviews(
     acceptedProposal?.freelancerId ?? 0,
@@ -61,7 +69,7 @@ export default function JobDetailPage() {
 
   const { data: clientReviews } = useListProfileReviews(job?.clientId ?? 0, {
     query: {
-      enabled: !!job?.clientId && profile?.role === "freelancer",
+      enabled: !!job?.clientId,
       queryKey: getListProfileReviewsQueryKey(job?.clientId ?? 0),
     },
   });
@@ -101,11 +109,11 @@ export default function JobDetailPage() {
 
   const isOwner = profile?.id === job.clientId;
   const isFreelancer = profile?.role === "freelancer";
-  const myAcceptedProposal = proposalsData?.proposals.find(
-    (p) => p.freelancerId === profile?.id && p.status === "accepted",
+  const myAcceptedProposal = myProposalsData?.proposals.find(
+    (p) => p.jobId === jobId && p.status === "accepted",
   );
 
-  const jobIsClosedOrInProgress = job.status === "closed" || job.status === "in_progress";
+  const jobIsClosed = job.status === "closed";
 
   const clientAlreadyReviewedFreelancer = freelancerReviews?.reviews.some(
     (r) => r.reviewerId === profile?.id && r.jobId === jobId,
@@ -116,10 +124,10 @@ export default function JobDetailPage() {
   );
 
   const canClientLeaveReview =
-    isOwner && jobIsClosedOrInProgress && !!acceptedProposal && !clientAlreadyReviewedFreelancer && !reviewSuccess;
+    isOwner && jobIsClosed && !!acceptedProposal && !clientAlreadyReviewedFreelancer && !reviewSuccess;
 
   const canFreelancerLeaveReview =
-    isFreelancer && jobIsClosedOrInProgress && !!myAcceptedProposal && !freelancerAlreadyReviewedClient && !reviewSuccess;
+    isFreelancer && jobIsClosed && !!myAcceptedProposal && !freelancerAlreadyReviewedClient && !reviewSuccess;
 
   const reviewTarget = isOwner
     ? { id: acceptedProposal?.freelancerId ?? 0, name: acceptedProposal?.freelancerName, role: "freelancer" as const }
@@ -333,7 +341,11 @@ export default function JobDetailPage() {
               <UserAvatar name={job.clientName} size="md" />
               <div>
                 <div className="font-medium text-foreground text-sm">{job.clientName ?? "Client"}</div>
-                <div className="text-xs text-muted-foreground">Client</div>
+                {clientReviews?.avgRating != null ? (
+                  <div className="mt-1"><StarRating rating={clientReviews.avgRating} total={clientReviews.total} /></div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">Client · no reviews yet</div>
+                )}
               </div>
             </div>
           </div>

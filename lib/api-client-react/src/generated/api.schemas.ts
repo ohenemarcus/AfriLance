@@ -268,6 +268,10 @@ export interface Review {
   jobId: number;
   reviewerId: number;
   revieweeId: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
   rating: number;
   /** @nullable */
   comment?: string | null;
@@ -281,6 +285,10 @@ export interface Review {
 export interface CreateReviewBody {
   jobId: number;
   revieweeId: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
   rating: number;
   /** @nullable */
   comment?: string | null;

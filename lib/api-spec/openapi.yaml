@@ -1563,6 +1563,8 @@ components:
           type: integer
         rating:
           type: integer
+          minimum: 1
+          maximum: 5
         comment:
           type: ["string", "null"]
         reviewerName:
@@ -1588,6 +1590,8 @@ components:
           type: integer
         rating:
           type: integer
+          minimum: 1
+          maximum: 5
         comment:
           type: ["string", "null"]
       required:

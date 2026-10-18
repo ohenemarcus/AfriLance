@@ -11,6 +11,10 @@ export interface Review {
   jobId: number;
   reviewerId: number;
   revieweeId: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
   rating: number;
   /** @nullable */
   comment?: string | null;
