@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const CATEGORIES = [
   "Software Development", "Design & Creative", "Writing & Content",
@@ -117,6 +117,7 @@ function UploadButton({
 }
 
 export default function SettingsPage() {
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useGetMyProfile({
     query: { queryKey: getGetMyProfileQueryKey() },
@@ -137,7 +138,7 @@ export default function SettingsPage() {
     resumeUrl: null as string | null,
     verificationDocUrl: null as string | null,
   });
-  const [success, setSuccess] = useState(false);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [portfolioTab, setPortfolioTab] = useState<"list" | "add" | number>("list");
   const [portfolioForm, setPortfolioForm] = useState({ title: "", description: "", imageUrl: "", projectUrl: "" });
@@ -175,6 +176,11 @@ export default function SettingsPage() {
       });
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!avatarPreviewUrl) return;
+    return () => URL.revokeObjectURL(avatarPreviewUrl);
+  }, [avatarPreviewUrl]);
 
   const addSkill = () => {
     const skill = form.newSkill.trim();
@@ -238,7 +244,6 @@ export default function SettingsPage() {
       return;
     }
     setError("");
-    setSuccess(false);
     mutate(
       {
         data: {
@@ -258,9 +263,8 @@ export default function SettingsPage() {
       },
       {
         onSuccess: () => {
-          setSuccess(true);
           queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
-          setTimeout(() => setSuccess(false), 3000);
+          setLocation("/dashboard");
         },
         onError: () => {
           setError("Failed to update profile. Please try again.");
@@ -303,7 +307,7 @@ export default function SettingsPage() {
       {/* Profile Picture */}
       <div className="flex items-center gap-4 mb-6 p-4 bg-card border border-border rounded-xl">
         <div className="relative flex-shrink-0">
-          <UserAvatar name={profile?.name} avatarUrl={form.avatarUrl} size="lg" />
+          <UserAvatar name={profile?.name} avatarUrl={avatarPreviewUrl ?? form.avatarUrl} size="lg" />
           <button
             type="button"
             onClick={() => avatarInputRef.current?.click()}
@@ -330,7 +334,11 @@ export default function SettingsPage() {
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (file) await uploadAvatar(file);
+              if (file) {
+                setAvatarPreviewUrl(URL.createObjectURL(file));
+                const uploadedPath = await uploadAvatar(file);
+                if (!uploadedPath) setAvatarPreviewUrl(null);
+              }
               if (avatarInputRef.current) avatarInputRef.current.value = "";
             }}
           />
@@ -350,12 +358,6 @@ export default function SettingsPage() {
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>
         )}
-        {success && (
-          <div className="p-3 bg-emerald-100 border border-emerald-200 rounded-lg text-sm text-emerald-700">
-            Profile updated successfully!
-          </div>
-        )}
-
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Full Name *</label>
           <input
