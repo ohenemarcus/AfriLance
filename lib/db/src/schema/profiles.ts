@@ -20,6 +20,8 @@ export const profilesTable = pgTable("profiles", {
   avatarUrl: text("avatar_url"),
   location: text("location"),
   skills: text("skills").array().notNull().default([]),
+  languages: text("languages").array().notNull().default([]),
+  certifications: text("certifications").array().notNull().default([]),
   hourlyRate: real("hourly_rate"),
   fixedRate: real("fixed_rate"),
   category: text("category"),

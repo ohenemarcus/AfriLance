@@ -130,6 +130,10 @@ export default function SettingsPage() {
     location: "",
     skills: [] as string[],
     newSkill: "",
+    languages: [] as string[],
+    newLanguage: "",
+    certifications: [] as string[],
+    newCertification: "",
     hourlyRate: "",
     fixedRate: "",
     category: "",
@@ -166,6 +170,10 @@ export default function SettingsPage() {
         location: profile.location ?? "",
         skills: profile.skills ?? [],
         newSkill: "",
+        languages: profile.languages ?? [],
+        newLanguage: "",
+        certifications: profile.certifications ?? [],
+        newCertification: "",
         hourlyRate: profile.hourlyRate != null ? String(profile.hourlyRate) : "",
         fixedRate: (profile as any).fixedRate != null ? String((profile as any).fixedRate) : "",
         category: profile.category ?? "",
@@ -191,6 +199,20 @@ export default function SettingsPage() {
 
   const removeSkill = (skill: string) => {
     setForm((f) => ({ ...f, skills: f.skills.filter((s) => s !== skill) }));
+  };
+
+  const addLanguage = () => {
+    const language = form.newLanguage.trim();
+    if (language && !form.languages.some((item) => item.toLowerCase() === language.toLowerCase())) {
+      setForm((f) => ({ ...f, languages: [...f.languages, language], newLanguage: "" }));
+    }
+  };
+
+  const addCertification = () => {
+    const certification = form.newCertification.trim();
+    if (certification && !form.certifications.some((item) => item.toLowerCase() === certification.toLowerCase())) {
+      setForm((f) => ({ ...f, certifications: [...f.certifications, certification], newCertification: "" }));
+    }
   };
 
   const addPortfolioItem = () => {
@@ -252,6 +274,8 @@ export default function SettingsPage() {
           bio: form.bio.trim() || null,
           location: form.location.trim() || null,
           skills: form.skills,
+          languages: form.languages,
+          certifications: form.certifications,
           hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : null,
           fixedRate: form.fixedRate ? parseFloat(form.fixedRate) : null,
           category: form.category || null,
@@ -430,6 +454,60 @@ export default function SettingsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Languages <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <p className="mb-2 text-xs text-muted-foreground">Add languages you can use professionally.</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={80}
+                  value={form.newLanguage}
+                  onChange={(event) => setForm((f) => ({ ...f, newLanguage: event.target.value }))}
+                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addLanguage(); } }}
+                  placeholder="e.g. English, Twi"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <button type="button" onClick={addLanguage} disabled={!form.newLanguage.trim()} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">Add</button>
+              </div>
+              {form.languages.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {form.languages.map((language) => (
+                    <span key={language} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                      {language}
+                      <button type="button" aria-label={`Remove ${language}`} onClick={() => setForm((f) => ({ ...f, languages: f.languages.filter((item) => item !== language) }))} className="text-muted-foreground hover:text-foreground">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Relevant certifications <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <p className="mb-2 text-xs text-muted-foreground">List relevant certificates, licences, or credentials.</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={form.newCertification}
+                  onChange={(event) => setForm((f) => ({ ...f, newCertification: event.target.value }))}
+                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCertification(); } }}
+                  placeholder="e.g. AWS Certified Cloud Practitioner"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <button type="button" onClick={addCertification} disabled={!form.newCertification.trim()} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">Add</button>
+              </div>
+              {form.certifications.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {form.certifications.map((certification) => (
+                    <span key={certification} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                      {certification}
+                      <button type="button" aria-label={`Remove ${certification}`} onClick={() => setForm((f) => ({ ...f, certifications: f.certifications.filter((item) => item !== certification) }))} className="text-muted-foreground hover:text-foreground">×</button>
                     </span>
                   ))}
                 </div>

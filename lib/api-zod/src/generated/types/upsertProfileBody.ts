@@ -17,6 +17,8 @@ export interface UpsertProfileBody {
   /** @nullable */
   location?: string | null;
   skills?: string[];
+  languages?: string[];
+  certifications?: string[];
   /** @nullable */
   hourlyRate?: number | null;
   /** @nullable */

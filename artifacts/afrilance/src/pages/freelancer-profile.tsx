@@ -62,6 +62,8 @@ export default function FreelancerProfilePage() {
   }
 
   const portfolioItems = (profile.portfolioItems ?? []) as PortfolioItem[];
+  const languages = profile.languages ?? [];
+  const certifications = profile.certifications ?? [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -130,6 +132,31 @@ export default function FreelancerProfilePage() {
               <div className="flex flex-wrap gap-2">
                 {profile.skills.map((s) => <SkillBadge key={s} skill={s} />)}
               </div>
+            </div>
+          )}
+
+          {languages.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="font-semibold text-foreground mb-3">Languages</h2>
+              <div className="flex flex-wrap gap-2">
+                {languages.map((language) => (
+                  <span key={language} className="rounded-lg bg-muted px-3 py-1.5 text-sm text-foreground">{language}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {certifications.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="font-semibold text-foreground mb-3">Certifications</h2>
+              <ul className="space-y-2">
+                {certifications.map((certification) => (
+                  <li key={certification} className="flex items-start gap-2 text-sm text-foreground">
+                    <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+                    {certification}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

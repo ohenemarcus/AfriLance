@@ -1070,6 +1070,14 @@ components:
           type: array
           items:
             type: string
+        languages:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
         hourlyRate:
           type: ["number", "null"]
         fixedRate:
@@ -1149,6 +1157,14 @@ components:
         location:
           type: ["string", "null"]
         skills:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            type: string
+        certifications:
           type: array
           items:
             type: string
