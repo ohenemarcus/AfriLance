@@ -134,6 +134,12 @@ export default function SettingsPage() {
     newLanguage: "",
     certifications: [] as string[],
     newCertification: "",
+    companyName: "",
+    companyWebsite: "",
+    industry: "",
+    companySize: "",
+    hiringBudget: "",
+    hiringNeeds: "",
     hourlyRate: "",
     fixedRate: "",
     category: "",
@@ -174,6 +180,12 @@ export default function SettingsPage() {
         newLanguage: "",
         certifications: profile.certifications ?? [],
         newCertification: "",
+        companyName: profile.companyName ?? "",
+        companyWebsite: profile.companyWebsite ?? "",
+        industry: profile.industry ?? "",
+        companySize: profile.companySize ?? "",
+        hiringBudget: profile.hiringBudget ?? "",
+        hiringNeeds: profile.hiringNeeds ?? "",
         hourlyRate: profile.hourlyRate != null ? String(profile.hourlyRate) : "",
         fixedRate: (profile as any).fixedRate != null ? String((profile as any).fixedRate) : "",
         category: profile.category ?? "",
@@ -276,6 +288,12 @@ export default function SettingsPage() {
           skills: form.skills,
           languages: form.languages,
           certifications: form.certifications,
+          companyName: form.companyName.trim() || null,
+          companyWebsite: form.companyWebsite.trim() || null,
+          industry: form.industry.trim() || null,
+          companySize: form.companySize || null,
+          hiringBudget: form.hiringBudget || null,
+          hiringNeeds: form.hiringNeeds.trim() || null,
           hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : null,
           fixedRate: form.fixedRate ? parseFloat(form.fixedRate) : null,
           category: form.category || null,
@@ -414,6 +432,91 @@ export default function SettingsPage() {
             className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
+
+        {profile?.role === "client" && (
+          <section className="space-y-4 rounded-xl border border-border bg-background p-4">
+            <div>
+              <h2 className="font-semibold text-foreground">Client and organization details</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Optional details that help freelancers understand your organization and the work you’re hiring for.</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Organization or business name <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <input
+                type="text"
+                maxLength={120}
+                value={form.companyName}
+                onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))}
+                placeholder="e.g. Acme Studio or Independent client"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Website <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <input
+                  type="url"
+                  maxLength={500}
+                  value={form.companyWebsite}
+                  onChange={(event) => setForm((current) => ({ ...current, companyWebsite: event.target.value }))}
+                  placeholder="https://example.com"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Industry <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={form.industry}
+                  onChange={(event) => setForm((current) => ({ ...current, industry: event.target.value }))}
+                  placeholder="e.g. Education, fintech, retail"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Organization size <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <select
+                  value={form.companySize}
+                  onChange={(event) => setForm((current) => ({ ...current, companySize: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                >
+                  <option value="">Select organization size</option>
+                  <option value="Just me">Just me</option>
+                  <option value="2-10">2-10 people</option>
+                  <option value="11-50">11-50 people</option>
+                  <option value="51-200">51-200 people</option>
+                  <option value="201+">201+ people</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Typical project budget <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <select
+                  value={form.hiringBudget}
+                  onChange={(event) => setForm((current) => ({ ...current, hiringBudget: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                >
+                  <option value="">Select a budget range</option>
+                  <option value="Under GHS 1,000">Under GHS 1,000</option>
+                  <option value="GHS 1,000-5,000">GHS 1,000-5,000</option>
+                  <option value="GHS 5,001-20,000">GHS 5,001-20,000</option>
+                  <option value="Over GHS 20,000">Over GHS 20,000</option>
+                  <option value="Depends on project">Depends on project</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">What do you usually hire for? <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={form.hiringNeeds}
+                onChange={(event) => setForm((current) => ({ ...current, hiringNeeds: event.target.value }))}
+                placeholder="Describe the kinds of projects or skills you often need."
+                className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+          </section>
+        )}
 
         {profile?.role === "freelancer" && (
           <>

@@ -1216,6 +1216,18 @@ components:
           type: array
           items:
             type: string
+        companyName:
+          type: ["string", "null"]
+        companyWebsite:
+          type: ["string", "null"]
+        industry:
+          type: ["string", "null"]
+        companySize:
+          type: ["string", "null"]
+        hiringBudget:
+          type: ["string", "null"]
+        hiringNeeds:
+          type: ["string", "null"]
         hourlyRate:
           type: ["number", "null"]
         fixedRate:
@@ -1306,6 +1318,18 @@ components:
           type: array
           items:
             type: string
+        companyName:
+          type: ["string", "null"]
+        companyWebsite:
+          type: ["string", "null"]
+        industry:
+          type: ["string", "null"]
+        companySize:
+          type: ["string", "null"]
+        hiringBudget:
+          type: ["string", "null"]
+        hiringNeeds:
+          type: ["string", "null"]
         hourlyRate:
           type: ["number", "null"]
         fixedRate:

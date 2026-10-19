@@ -35,6 +35,18 @@ export interface Profile {
   languages?: string[];
   certifications?: string[];
   /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  companyWebsite?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  companySize?: string | null;
+  /** @nullable */
+  hiringBudget?: string | null;
+  /** @nullable */
+  hiringNeeds?: string | null;
+  /** @nullable */
   hourlyRate?: number | null;
   /** @nullable */
   fixedRate?: number | null;
@@ -69,6 +81,18 @@ export interface UpsertProfileBody {
   skills?: string[];
   languages?: string[];
   certifications?: string[];
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  companyWebsite?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  companySize?: string | null;
+  /** @nullable */
+  hiringBudget?: string | null;
+  /** @nullable */
+  hiringNeeds?: string | null;
   /** @nullable */
   hourlyRate?: number | null;
   /** @nullable */
@@ -699,4 +723,3 @@ entityType?: string;
 limit?: number;
 offset?: number;
 };
-

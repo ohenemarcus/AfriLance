@@ -37,6 +37,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifData?.unreadCount ?? 0;
 
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
+  const authNavItems = profile?.role === "client"
+    ? AUTH_NAV_ITEMS.map((item) => item.href === "/jobs" ? { href: "/freelancers", label: "Freelancers" } : item)
+    : AUTH_NAV_ITEMS;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -65,7 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ))}
               </Show>
               <Show when="signed-in">
-                {AUTH_NAV_ITEMS.map((item) => (
+                {authNavItems.map((item) => (
                   <Link
                     key={item.href}
                     to={item.href}
@@ -276,7 +279,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </Show>
               <Show when="signed-in">
-                {AUTH_NAV_ITEMS.map((item) => (
+                {authNavItems.map((item) => (
                   <Link
                     key={item.href}
                     to={item.href}
