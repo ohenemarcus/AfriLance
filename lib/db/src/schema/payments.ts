@@ -54,6 +54,7 @@ export const disputesTable = pgTable("payment_disputes", {
 export const disputeEvidenceTable = pgTable("dispute_evidence", {
   id: serial("id").primaryKey(),
   disputeId: integer("dispute_id").notNull(),
+  messageId: integer("message_id"),
   objectPath: text("object_path").notNull(),
   fileName: text("file_name").notNull(),
   contentType: text("content_type").notNull(),

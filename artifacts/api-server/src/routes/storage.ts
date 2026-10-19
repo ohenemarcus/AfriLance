@@ -7,7 +7,13 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { getAuth } from "@clerk/express";
-import { db, profilesTable } from "@workspace/db";
+import {
+  db,
+  disputeEvidenceTable,
+  disputesTable,
+  paymentsTable,
+  profilesTable,
+} from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { isAdminUser } from "../lib/adminAccess";
 
@@ -133,19 +139,34 @@ router.get("/storage/r2-objects/:objectId", async (req: Request, res: Response) 
     const [owner] = await db.select({ userId: profilesTable.userId, role: profilesTable.role, avatarUrl: profilesTable.avatarUrl, resumeUrl: profilesTable.resumeUrl, verificationDocUrl: profilesTable.verificationDocUrl })
       .from(profilesTable)
       .where(or(eq(profilesTable.avatarUrl, objectPath), eq(profilesTable.verificationDocUrl, objectPath), eq(profilesTable.resumeUrl, objectPath)));
-    if (!owner) {
+    const [evidence] = await db.select({ disputeId: disputeEvidenceTable.disputeId })
+      .from(disputeEvidenceTable)
+      .where(eq(disputeEvidenceTable.objectPath, objectPath));
+    if (!owner && !evidence) {
       res.status(404).json({ error: "File not found" });
       return;
     }
-    if (owner.verificationDocUrl === objectPath) {
+    if (owner?.verificationDocUrl === objectPath || evidence) {
       const userId = getAuth(req)?.userId;
-      const isOwner = userId === owner.userId;
       const [viewer] = userId
-        ? await db.select({ role: profilesTable.role }).from(profilesTable).where(eq(profilesTable.userId, userId))
+        ? await db.select({ id: profilesTable.id, role: profilesTable.role }).from(profilesTable).where(eq(profilesTable.userId, userId))
         : [];
+      const isOwner = userId === owner?.userId;
       const isModerator = viewer?.role === "moderator";
       const isAdmin = userId ? await isAdminUser(userId) : false;
-      if (!isOwner && !isModerator && !isAdmin) {
+      let isDisputeParticipant = false;
+      if (evidence && viewer) {
+        const [dispute] = await db.select({ paymentId: disputesTable.paymentId })
+          .from(disputesTable)
+          .where(eq(disputesTable.id, evidence.disputeId));
+        const [payment] = dispute
+          ? await db.select({ clientId: paymentsTable.clientId, freelancerId: paymentsTable.freelancerId })
+            .from(paymentsTable)
+            .where(eq(paymentsTable.id, dispute.paymentId))
+          : [];
+        isDisputeParticipant = payment?.clientId === viewer.id || payment?.freelancerId === viewer.id;
+      }
+      if (!isOwner && !isModerator && !isAdmin && !isDisputeParticipant) {
         res.status(404).json({ error: "File not found" });
         return;
       }
@@ -158,7 +179,7 @@ router.get("/storage/r2-objects/:objectId", async (req: Request, res: Response) 
     }
     res.setHeader("Content-Type", object.contentType);
     res.setHeader("Content-Disposition", "inline");
-    res.setHeader("Cache-Control", owner.verificationDocUrl === objectPath ? "private, no-store" : "public, max-age=3600");
+    res.setHeader("Cache-Control", owner?.verificationDocUrl === objectPath || evidence ? "private, no-store" : "public, max-age=3600");
     res.send(object.data);
   } catch (error) {
     req.log.error({ err: error }, "Failed to read file from Cloudflare R2");

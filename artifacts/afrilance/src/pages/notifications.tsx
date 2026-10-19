@@ -130,6 +130,8 @@ export default function NotificationsPage() {
       case "payment_processing":
       case "payment_release_failed":
         return "/payments";
+      case "dispute_response":
+        return "/admin?tab=disputes";
       case "payment_failed":
         return notification.relatedType === "job" && relatedId != null
           ? `/jobs/${relatedId}`

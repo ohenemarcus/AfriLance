@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate, formatRelative } from "@/lib/format";
 import { useAuth, useUser } from "@clerk/react";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { DisputeMessagesPanel } from "@/components/DisputeMessagesPanel";
 
 declare global {
   interface Window {
@@ -273,7 +274,34 @@ export default function PaymentsPage() {
   const [disputeSaving, setDisputeSaving] = useState(false);
   const [historyPayment, setHistoryPayment] = useState<number | null>(null);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  const [myDisputes, setMyDisputes] = useState<Array<{
+    id: number;
+    status: string;
+    reason: string;
+    createdAt: string;
+    jobTitle?: string | null;
+    payment?: { id: number; jobId: number; amount: number };
+  }>>([]);
+  const [myDisputesError, setMyDisputesError] = useState("");
   const { uploadFile } = useFileUpload({ maxSizeMB: 10, accept: ["image/", "application/pdf", "text/"] });
+
+  const loadMyDisputes = useCallback(async () => {
+    const token = await getToken();
+    const response = await fetch("/api/my/disputes", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error ?? "Could not load your disputes");
+    setMyDisputes(body.disputes ?? []);
+    setMyDisputesError("");
+  }, [getToken]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadMyDisputes().catch((cause) => {
+      setMyDisputesError(cause instanceof Error ? cause.message : "Could not load your disputes");
+    });
+  }, [loadMyDisputes, user]);
 
   const banks = banksData?.banks ?? [];
   const isMoMo = selectedBank?.type === "mobile_money";
@@ -438,6 +466,7 @@ export default function PaymentsPage() {
       setDisputeFiles([]);
       setDisputeForm({ reason: "", description: "", requestedAmount: "" });
       queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey() });
+      await loadMyDisputes();
     } catch (error) {
       setDisputeError(error instanceof Error ? error.message : "Could not open dispute");
     } finally {
@@ -517,6 +546,33 @@ export default function PaymentsPage() {
           <li>Client releases — funds are transferred to the freelancer's bank account or MoMo wallet</li>
         </ol>
       </div>
+
+      {(myDisputes.length > 0 || myDisputesError) && (
+        <section className="mb-5 space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Your disputes</h2>
+            <p className="text-sm text-muted-foreground">Review questions from the moderation team and reply with any requested details.</p>
+          </div>
+          {myDisputesError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{myDisputesError}</p>}
+          {myDisputes.map((dispute) => (
+            <div key={dispute.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-medium text-foreground">{dispute.jobTitle ?? `Job #${dispute.payment?.jobId ?? "?"}`}</h3>
+                  <p className="text-xs text-muted-foreground">Dispute #{dispute.id} · {dispute.reason}</p>
+                </div>
+                <StatusBadge status={dispute.status} />
+              </div>
+              <DisputeMessagesPanel
+                disputeId={dispute.id}
+                disputeStatus={dispute.status}
+                viewerId={profile?.id}
+                moderator={false}
+              />
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Payment list */}
       {isLoading ? (

@@ -5,6 +5,7 @@ export * from "./messages";
 export * from "./notifications";
 export * from "./reviews";
 export * from "./payments";
+export * from "./dispute-messages";
 export * from "./saved-jobs";
 export * from "./audit-logs";
 export * from "./legal-acceptances";

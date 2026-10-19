@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db,
   disputeEvidenceTable,
+  disputeMessagesTable,
   disputesTable,
   jobsTable,
   notificationsTable,
@@ -29,16 +30,48 @@ async function canModerateProfile(profile: Awaited<ReturnType<typeof profileFor>
 async function enrichDispute(dispute: typeof disputesTable.$inferSelect) {
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, dispute.paymentId));
   const [job] = payment ? await db.select().from(jobsTable).where(eq(jobsTable.id, payment.jobId)) : [];
-  const evidence = await db.select().from(disputeEvidenceTable).where(eq(disputeEvidenceTable.disputeId, dispute.id));
+  const evidence = await db.select().from(disputeEvidenceTable).where(and(
+    eq(disputeEvidenceTable.disputeId, dispute.id),
+    isNull(disputeEvidenceTable.messageId),
+  ));
+  const [client] = payment ? await db.select({ id: profilesTable.id, name: profilesTable.name }).from(profilesTable).where(eq(profilesTable.id, payment.clientId)) : [];
+  const [freelancer] = payment ? await db.select({ id: profilesTable.id, name: profilesTable.name }).from(profilesTable).where(eq(profilesTable.id, payment.freelancerId)) : [];
   return {
     ...dispute,
     createdAt: dispute.createdAt.toISOString(),
     updatedAt: dispute.updatedAt.toISOString(),
     resolvedAt: dispute.resolvedAt?.toISOString() ?? null,
     payment,
+    client: client ?? null,
+    freelancer: freelancer ?? null,
     jobTitle: job?.title ?? null,
     evidence,
   };
+}
+
+async function getDisputeMessageView(disputeId: number) {
+  const messages = await db.select().from(disputeMessagesTable)
+    .where(eq(disputeMessagesTable.disputeId, disputeId))
+    .orderBy(disputeMessagesTable.createdAt);
+  return Promise.all(messages.map(async (message) => {
+    const [sender] = await db.select({ name: profilesTable.name, role: profilesTable.role, userId: profilesTable.userId })
+      .from(profilesTable).where(eq(profilesTable.id, message.senderId));
+    const [recipient] = await db.select({ name: profilesTable.name, role: profilesTable.role })
+      .from(profilesTable).where(eq(profilesTable.id, message.recipientId));
+    const evidence = await db.select().from(disputeEvidenceTable)
+      .where(eq(disputeEvidenceTable.messageId, message.id));
+    return {
+      ...message,
+      createdAt: message.createdAt.toISOString(),
+      senderName: sender?.name ?? "User",
+      senderRole: sender?.role ?? "user",
+      senderIsModerator: sender
+        ? sender.role === "admin" || sender.role === "moderator" || await isAdminUser(sender.userId)
+        : false,
+      recipientName: recipient?.name ?? "User",
+      evidence,
+    };
+  }));
 }
 
 async function notifyDisputeParticipants(payment: typeof paymentsTable.$inferSelect, title: string, body: string) {
@@ -122,6 +155,181 @@ router.get("/payments/:id/disputes", async (req, res): Promise<void> => {
   }
   const disputes = await db.select().from(disputesTable).where(eq(disputesTable.paymentId, paymentId)).orderBy(desc(disputesTable.createdAt));
   res.json({ disputes: await Promise.all(disputes.map(enrichDispute)) });
+});
+
+router.get("/my/disputes", async (req, res): Promise<void> => {
+  const profile = await profileFor(req);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const payments = await db.select({ id: paymentsTable.id }).from(paymentsTable)
+    .where(or(eq(paymentsTable.clientId, profile.id), eq(paymentsTable.freelancerId, profile.id)));
+  if (!payments.length) { res.json({ disputes: [] }); return; }
+  const disputes = await db.select().from(disputesTable)
+    .where(inArray(disputesTable.paymentId, payments.map((payment) => payment.id)))
+    .orderBy(desc(disputesTable.createdAt));
+  res.json({ disputes: await Promise.all(disputes.map(enrichDispute)) });
+});
+
+router.get("/disputes/:id/messages", async (req, res): Promise<void> => {
+  const profile = await profileFor(req);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const disputeId = Number(req.params.id);
+  if (!Number.isInteger(disputeId) || disputeId <= 0) { res.status(400).json({ error: "Invalid dispute ID" }); return; }
+  const [dispute] = await db.select().from(disputesTable).where(eq(disputesTable.id, disputeId));
+  const [payment] = dispute ? await db.select().from(paymentsTable).where(eq(paymentsTable.id, dispute.paymentId)) : [];
+  const canModerate = await canModerateProfile(profile);
+  if (!dispute || !payment || (!canModerate && payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
+    res.status(404).json({ error: "Dispute not found" }); return;
+  }
+  const allMessages = await getDisputeMessageView(disputeId);
+  res.json({
+    messages: canModerate
+      ? allMessages
+      : allMessages.filter((message) => message.senderId === profile.id || message.recipientId === profile.id),
+  });
+});
+
+router.post("/disputes/:id/messages", async (req, res): Promise<void> => {
+  const profile = await profileFor(req);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const disputeId = Number(req.params.id);
+  const parsed = z.object({
+    replyToId: z.number().int().positive(),
+    content: z.string().trim().min(1).max(5000),
+    evidence: z.array(z.object({
+      objectPath: z.string().regex(/^(\/api\/storage\/(r2-objects|local-objects)\/[0-9a-f-]{36}|\/objects\/[A-Za-z0-9/_-]+)$/i),
+      fileName: z.string().min(1).max(255),
+      contentType: z.string().min(1).max(120),
+    })).max(5).optional(),
+  }).safeParse(req.body);
+  if (!Number.isInteger(disputeId) || disputeId <= 0 || !parsed.success) {
+    res.status(400).json({ error: "Invalid dispute response" }); return;
+  }
+  const [dispute] = await db.select().from(disputesTable).where(eq(disputesTable.id, disputeId));
+  const [payment] = dispute ? await db.select().from(paymentsTable).where(eq(paymentsTable.id, dispute.paymentId)) : [];
+  if (!dispute || !payment || (payment.clientId !== profile.id && payment.freelancerId !== profile.id)) {
+    res.status(404).json({ error: "Dispute not found" }); return;
+  }
+  if (!["open", "under_review"].includes(dispute.status)) {
+    res.status(409).json({ error: "This dispute is no longer accepting responses" }); return;
+  }
+  const [request] = await db.select().from(disputeMessagesTable)
+    .where(and(
+      eq(disputeMessagesTable.id, parsed.data.replyToId),
+      eq(disputeMessagesTable.disputeId, disputeId),
+      eq(disputeMessagesTable.recipientId, profile.id),
+    ));
+  if (!request) { res.status(404).json({ error: "Information request not found" }); return; }
+  const [moderator] = await db.select().from(profilesTable).where(eq(profilesTable.id, request.senderId));
+  if (!moderator || !(await canModerateProfile(moderator))) {
+    res.status(404).json({ error: "Information request not found" }); return;
+  }
+  const [existingReply] = await db.select({ id: disputeMessagesTable.id })
+    .from(disputeMessagesTable).where(eq(disputeMessagesTable.replyToId, request.id));
+  if (existingReply) { res.status(409).json({ error: "This request has already been answered" }); return; }
+
+  let message: typeof disputeMessagesTable.$inferSelect;
+  try {
+    [message] = await db.transaction(async (tx) => {
+      const inserted = await tx.insert(disputeMessagesTable).values({
+        disputeId,
+        senderId: profile.id,
+        recipientId: request.senderId,
+        replyToId: request.id,
+        content: parsed.data.content,
+      }).returning();
+      await tx.insert(notificationsTable).values({
+        userId: moderator.id,
+        type: "dispute_response",
+        title: "A party replied to a dispute request",
+        body: "A participant has responded to your request for information.",
+        relatedId: dispute.id,
+        relatedType: "dispute",
+      });
+      if (parsed.data.evidence?.length) {
+        await tx.insert(disputeEvidenceTable).values(parsed.data.evidence.map((file) => ({
+          disputeId,
+          messageId: inserted[0].id,
+          ...file,
+        })));
+      }
+      return inserted;
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "This request has already been answered" });
+      return;
+    }
+    throw error;
+  }
+  res.status(201).json(message);
+});
+
+router.post("/admin/disputes/:id/messages", async (req, res): Promise<void> => {
+  const profile = await profileFor(req);
+  if (!profile || !(await canModerateProfile(profile))) {
+    res.status(403).json({ error: "Moderator access required" }); return;
+  }
+  const disputeId = Number(req.params.id);
+  const parsed = z.union([
+    z.object({
+      recipient: z.enum(["client", "freelancer", "both"]),
+      content: z.string().trim().min(1).max(5000),
+    }),
+    z.object({
+      replyToId: z.number().int().positive(),
+      content: z.string().trim().min(1).max(5000),
+    }),
+  ]).safeParse(req.body);
+  if (!Number.isInteger(disputeId) || disputeId <= 0 || !parsed.success) {
+    res.status(400).json({ error: "Invalid dispute message" }); return;
+  }
+  const [dispute] = await db.select().from(disputesTable).where(eq(disputesTable.id, disputeId));
+  const [payment] = dispute ? await db.select().from(paymentsTable).where(eq(paymentsTable.id, dispute.paymentId)) : [];
+  if (!dispute || !payment) { res.status(404).json({ error: "Dispute not found" }); return; }
+  if (!["open", "under_review"].includes(dispute.status)) {
+    res.status(409).json({ error: "This dispute is no longer accepting messages" }); return;
+  }
+
+  let recipients: number[];
+  let replyToId: number | null = null;
+  if ("replyToId" in parsed.data) {
+    const [parent] = await db.select().from(disputeMessagesTable).where(and(
+      eq(disputeMessagesTable.id, parsed.data.replyToId),
+      eq(disputeMessagesTable.disputeId, disputeId),
+      eq(disputeMessagesTable.recipientId, profile.id),
+    ));
+    if (!parent) { res.status(404).json({ error: "Dispute message not found" }); return; }
+    const [participant] = await db.select().from(profilesTable).where(eq(profilesTable.id, parent.senderId));
+    if (!participant || (participant.id !== payment.clientId && participant.id !== payment.freelancerId)) {
+      res.status(404).json({ error: "Dispute message not found" }); return;
+    }
+    recipients = [participant.id];
+    replyToId = parent.id;
+  } else {
+    if (parsed.data.recipient === "client" || parsed.data.recipient === "both") recipients = [payment.clientId];
+    else recipients = [];
+    if (parsed.data.recipient === "freelancer" || parsed.data.recipient === "both") recipients.push(payment.freelancerId);
+  }
+
+  const messages = await db.transaction(async (tx) => {
+    const inserted = await tx.insert(disputeMessagesTable).values(recipients.map((recipientId) => ({
+      disputeId,
+      senderId: profile.id,
+      recipientId,
+      replyToId,
+      content: parsed.data.content,
+    }))).returning();
+    await tx.insert(notificationsTable).values(recipients.map((recipientId) => ({
+      userId: recipientId,
+      type: "payment_dispute",
+      title: "A moderator sent you a dispute message",
+      body: "Please review and respond to a message in your dispute.",
+      relatedId: payment.id,
+      relatedType: "payment",
+    })));
+    return inserted;
+  });
+  res.status(201).json({ messages });
 });
 
 router.post("/disputes/:id/evidence", async (req, res): Promise<void> => {

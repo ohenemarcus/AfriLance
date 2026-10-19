@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
+import { DisputeMessagesPanel } from "@/components/DisputeMessagesPanel";
 import { formatRelative, formatCurrency } from "@/lib/format";
 import { useAuth } from "@clerk/react";
 
@@ -65,6 +66,8 @@ type AdminDispute = {
   payment?: { id: number; amount: number; status: string; jobId: number };
   jobTitle?: string | null;
   evidence: Array<{ id: number; objectPath: string; fileName: string }>;
+  client?: { id: number; name: string } | null;
+  freelancer?: { id: number; name: string } | null;
   createdAt: string;
 };
 
@@ -106,7 +109,10 @@ export default function AdminPage() {
     query: { queryKey: getGetMyProfileQueryKey() },
   });
   const isAdmin = profile?.role === "admin";
-  const [tab, setTab] = useState<Tab>("users");
+  const [tab, setTab] = useState<Tab>(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    return requestedTab === "disputes" ? requestedTab : "users";
+  });
   const [userSearch, setUserSearch] = useState("");
   const [userRole, setUserRole] = useState("");
   const [jobStatus, setJobStatus] = useState("");
@@ -821,9 +827,17 @@ export default function AdminPage() {
                     </div>
                     {!!dispute.evidence.length && (
                       <div className="flex flex-wrap gap-2">
-                        {dispute.evidence.map((file) => <a key={file.id} href={`/api/storage${file.objectPath}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Evidence: {file.fileName}</a>)}
+                        {dispute.evidence.map((file) => <a key={file.id} href={file.objectPath.startsWith("/api/storage/") ? file.objectPath : `/api/storage${file.objectPath}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Evidence: {file.fileName}</a>)}
                       </div>
                     )}
+                    <DisputeMessagesPanel
+                      disputeId={dispute.id}
+                      disputeStatus={dispute.status}
+                      viewerId={profile?.id}
+                      moderator
+                      client={dispute.client}
+                      freelancer={dispute.freelancer}
+                    />
                     {dispute.status === "open" || dispute.status === "under_review" ? (
                       <div className="border-t border-border pt-4 grid md:grid-cols-[1fr_1fr_2fr_auto] gap-3 items-end">
                         <label className="text-xs font-medium text-foreground">Decision<select value={form.decision} onChange={(e) => setForm({ decision: e.target.value })} className="mt-1 w-full px-2.5 py-2 bg-background border border-border rounded-lg text-sm"><option value="refund_full">Full refund</option><option value="refund_partial">Partial refund</option><option value="reject">Reject dispute</option></select></label>
