@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, ilike, and, gte, lte, sql, or, asc, desc } from "drizzle-orm";
 import { db, profilesTable, jobsTable } from "@workspace/db";
 import { ListFreelancersQueryParams, ListJobsQueryParams, GetJobParams, GetProfileParams } from "@workspace/api-zod";
+import { withoutPrivateNameFields } from "../lib/profilePrivacy";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get("/profiles/freelancers", async (req, res): Promise<void> => {
     .from(profilesTable)
     .where(and(...conditions));
 
-  res.json({ freelancers, total: Number(count) });
+  res.json({ freelancers: freelancers.map(withoutPrivateNameFields), total: Number(count) });
 });
 
 // GET /profiles/me should be handled by the protected route in the main router.
@@ -58,7 +59,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     .where(eq(profilesTable.id, params.data.id));
 
   if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
-  res.json(profile);
+  res.json(withoutPrivateNameFields(profile));
 });
 
 // GET /jobs — public

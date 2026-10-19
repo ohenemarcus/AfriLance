@@ -19,11 +19,15 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get current user's profile
  */
+export const getMyProfileResponseOneNameMax = 120;
+
+
+
 export const GetMyProfileResponse = zod.object({
   "id": zod.number(),
   "userId": zod.string(),
   "role": zod.string(),
-  "name": zod.string(),
+  "name": zod.string().max(getMyProfileResponseOneNameMax),
   "bio": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "location": zod.string().nullish(),
@@ -57,15 +61,23 @@ export const GetMyProfileResponse = zod.object({
   "verificationStatus": zod.string(),
   "completedJobs": zod.number(),
   "createdAt": zod.string()
-})
+}).and(zod.object({
+  "legalName": zod.string().nullish(),
+  "nameChangedAt": zod.coerce.date().nullish()
+}))
 
 
 /**
  * @summary Create or update current user's profile
  */
+export const upsertMyProfileBodyNameMin = 2;
+export const upsertMyProfileBodyNameMax = 120;
+
+
+
 export const UpsertMyProfileBody = zod.object({
   "role": zod.string(),
-  "name": zod.string(),
+  "name": zod.string().min(upsertMyProfileBodyNameMin).max(upsertMyProfileBodyNameMax),
   "bio": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "location": zod.string().nullish(),
@@ -92,11 +104,15 @@ export const UpsertMyProfileBody = zod.object({
   "verificationDocUrl": zod.string().nullish()
 })
 
+export const upsertMyProfileResponseOneNameMax = 120;
+
+
+
 export const UpsertMyProfileResponse = zod.object({
   "id": zod.number(),
   "userId": zod.string(),
   "role": zod.string(),
-  "name": zod.string(),
+  "name": zod.string().max(upsertMyProfileResponseOneNameMax),
   "bio": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "location": zod.string().nullish(),
@@ -130,7 +146,10 @@ export const UpsertMyProfileResponse = zod.object({
   "verificationStatus": zod.string(),
   "completedJobs": zod.number(),
   "createdAt": zod.string()
-})
+}).and(zod.object({
+  "legalName": zod.string().nullish(),
+  "nameChangedAt": zod.coerce.date().nullish()
+}))
 
 
 /**
@@ -140,11 +159,15 @@ export const GetProfileParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getProfileResponseNameMax = 120;
+
+
+
 export const GetProfileResponse = zod.object({
   "id": zod.number(),
   "userId": zod.string(),
   "role": zod.string(),
-  "name": zod.string(),
+  "name": zod.string().max(getProfileResponseNameMax),
   "bio": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "location": zod.string().nullish(),
@@ -198,12 +221,16 @@ export const ListFreelancersQueryParams = zod.object({
   "offset": zod.coerce.number().optional()
 })
 
+export const listFreelancersResponseFreelancersItemNameMax = 120;
+
+
+
 export const ListFreelancersResponse = zod.object({
   "freelancers": zod.array(zod.object({
   "id": zod.number(),
   "userId": zod.string(),
   "role": zod.string(),
-  "name": zod.string(),
+  "name": zod.string().max(listFreelancersResponseFreelancersItemNameMax),
   "bio": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "location": zod.string().nullish(),

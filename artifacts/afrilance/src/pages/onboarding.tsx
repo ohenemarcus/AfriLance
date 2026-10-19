@@ -148,15 +148,17 @@ export default function OnboardingPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Full Name *</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Public profile name *</label>
               <input
                 type="text"
                 required
+                maxLength={120}
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Your full name"
+                placeholder="Name other users will see"
                 className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
+              <p className="mt-1 text-xs text-muted-foreground">Your registration name remains associated with your account. This public name can be changed later once every 90 days.</p>
             </div>
 
             <div>

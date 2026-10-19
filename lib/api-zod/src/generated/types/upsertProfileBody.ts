@@ -9,6 +9,10 @@ import type { PortfolioItem } from './portfolioItem';
 
 export interface UpsertProfileBody {
   role: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
   name: string;
   /** @nullable */
   bio?: string | null;

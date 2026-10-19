@@ -46,6 +46,7 @@ export * from './listJobWorkSubmissions200';
 export * from './listNotificationsParams';
 export * from './message';
 export * from './messageListResponse';
+export * from './myProfile';
 export * from './notification';
 export * from './notificationListResponse';
 export * from './payment';

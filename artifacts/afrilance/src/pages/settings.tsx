@@ -187,12 +187,12 @@ export default function SettingsPage() {
         hiringBudget: profile.hiringBudget ?? "",
         hiringNeeds: profile.hiringNeeds ?? "",
         hourlyRate: profile.hourlyRate != null ? String(profile.hourlyRate) : "",
-        fixedRate: (profile as any).fixedRate != null ? String((profile as any).fixedRate) : "",
+        fixedRate: profile.fixedRate != null ? String(profile.fixedRate) : "",
         category: profile.category ?? "",
         portfolioItems: (profile.portfolioItems ?? []) as PortfolioItem[],
         avatarUrl: profile.avatarUrl ?? null,
-        resumeUrl: (profile as any).resumeUrl ?? null,
-        verificationDocUrl: (profile as any).verificationDocUrl ?? null,
+        resumeUrl: profile.resumeUrl ?? null,
+        verificationDocUrl: profile.verificationDocUrl ?? null,
       });
     }
   }, [profile]);
@@ -301,15 +301,15 @@ export default function SettingsPage() {
           avatarUrl: form.avatarUrl,
           resumeUrl: form.resumeUrl,
           verificationDocUrl: form.verificationDocUrl,
-        } as any,
+        },
       },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
           setLocation("/dashboard");
         },
-        onError: () => {
-          setError("Failed to update profile. Please try again.");
+        onError: (err) => {
+          setError(err.message || "Failed to update profile. Please try again.");
         },
       },
     );
@@ -327,6 +327,10 @@ export default function SettingsPage() {
   const isEditing = typeof portfolioTab === "number";
   const isAddingPortfolio = portfolioTab === "add";
   const showPortfolioForm = isEditing || isAddingPortfolio;
+  const nameChangeAllowedAt = profile?.nameChangedAt
+    ? new Date(new Date(profile.nameChangedAt).getTime() + 90 * 24 * 60 * 60 * 1000)
+    : null;
+  const canChangePublicName = !nameChangeAllowedAt || Date.now() >= nameChangeAllowedAt.getTime();
 
   const verificationStatus = (profile as any)?.verificationStatus ?? "none";
 
@@ -401,14 +405,31 @@ export default function SettingsPage() {
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>
         )}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Full Name *</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Registration name</label>
+          <input
+            type="text"
+            value={profile?.legalName ?? profile?.name ?? ""}
+            readOnly
+            className="w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">This name is associated with your account and can’t be changed here. If your legal name has changed, contact support; identity re-verification may be required.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Public profile name *</label>
           <input
             type="text"
             required
+            maxLength={120}
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            disabled={!canChangePublicName}
+            className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {canChangePublicName
+              ? "This is the name other users see. You can update it once every 90 days."
+              : `You can change your public name again on ${nameChangeAllowedAt?.toLocaleDateString()}.`}
+          </p>
         </div>
 
         <div>

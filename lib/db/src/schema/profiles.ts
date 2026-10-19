@@ -16,6 +16,8 @@ export const profilesTable = pgTable("profiles", {
   userId: text("user_id").notNull().unique(),
   role: text("role").notNull().default("freelancer"),
   name: text("name").notNull(),
+  legalName: text("legal_name"),
+  nameChangedAt: timestamp("name_changed_at", { withTimezone: true }),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   location: text("location"),

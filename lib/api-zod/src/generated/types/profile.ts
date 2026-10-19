@@ -11,6 +11,7 @@ export interface Profile {
   id: number;
   userId: string;
   role: string;
+  /** @maxLength 120 */
   name: string;
   /** @nullable */
   bio?: string | null;

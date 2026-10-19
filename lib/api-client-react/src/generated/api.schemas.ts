@@ -24,6 +24,7 @@ export interface Profile {
   id: number;
   userId: string;
   role: string;
+  /** @maxLength 120 */
   name: string;
   /** @nullable */
   bio?: string | null;
@@ -69,8 +70,19 @@ export interface Profile {
   createdAt: string;
 }
 
+export type MyProfile = Profile & ({
+  /** @nullable */
+  legalName?: string | null;
+  /** @nullable */
+  nameChangedAt?: string | null;
+});
+
 export interface UpsertProfileBody {
   role: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
   name: string;
   /** @nullable */
   bio?: string | null;

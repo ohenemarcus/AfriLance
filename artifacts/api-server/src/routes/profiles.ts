@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { eq, ilike, and, gte, lte, sql, or } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
-import { db, profilesTable } from "@workspace/db";
+import { eq, ilike, and, gte, lte, sql, or, isNull } from "drizzle-orm";
+import { clerkClient, getAuth } from "@clerk/express";
+import { db, profilesTable, auditLogsTable } from "@workspace/db";
 import { isAdminUser } from "../lib/adminAccess";
+import { withoutPrivateNameFields } from "../lib/profilePrivacy";
 import {
   UpsertMyProfileBody,
   ListFreelancersQueryParams,
@@ -10,6 +11,14 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
+const PUBLIC_NAME_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
+
+async function registrationNameFor(userId: string, fallbackName: string): Promise<string> {
+  const user = await clerkClient.users.getUser(userId);
+  return user.fullName?.trim() ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    fallbackName;
+}
 
 // Middleware to get or create a profile for the current user
 async function getMyProfileId(userId: string): Promise<number | null> {
@@ -56,9 +65,17 @@ router.get("/profiles/me", async (req, res): Promise<void> => {
       return;
     }
 
+    const legalName = profile.legalName ?? await registrationNameFor(userId, profile.name);
+    if (!profile.legalName) {
+      await db.update(profilesTable)
+        .set({ legalName })
+        .where(eq(profilesTable.userId, userId));
+    }
+
     const isAdmin = await isAdminUser(userId);
     res.json({
       ...profile,
+      legalName,
       role: isAdmin ? "admin" : profile.role === "admin" ? "freelancer" : profile.role,
     });
   } catch (err) {
@@ -84,7 +101,7 @@ router.put("/profiles/me", async (req, res): Promise<void> => {
 
   try {
     const existing = await db
-      .select({ id: profilesTable.id, role: profilesTable.role })
+      .select()
       .from(profilesTable)
       .where(eq(profilesTable.userId, userId));
 
@@ -97,21 +114,74 @@ router.put("/profiles/me", async (req, res): Promise<void> => {
           ? parsed.data.role
           : "freelancer";
 
+    const requestedName = parsed.data.name.trim();
+    if (requestedName.length < 2 || requestedName.length > 120) {
+      res.status(400).json({ error: "Public profile name must be between 2 and 120 characters" });
+      return;
+    }
+
+    const now = new Date();
+    const previousProfile = existing[0];
+    const publicNameChanged = !!previousProfile && requestedName !== previousProfile.name;
+    if (publicNameChanged && previousProfile.nameChangedAt) {
+      const nextChangeAt = new Date(previousProfile.nameChangedAt.getTime() + PUBLIC_NAME_COOLDOWN_MS);
+      if (now < nextChangeAt) {
+        res.status(429).json({
+          error: `Your public name can next be changed on ${nextChangeAt.toISOString().slice(0, 10)}.`,
+          nameChangeAllowedAt: nextChangeAt.toISOString(),
+        });
+        return;
+      }
+    }
+
+    const legalName = previousProfile?.legalName ?? await registrationNameFor(userId, requestedName);
     let profile;
-    if (existing.length > 0) {
-      [profile] = await db
-        .update(profilesTable)
-        .set({ ...parsed.data, role, updatedAt: new Date() })
-        .where(eq(profilesTable.userId, userId))
-        .returning();
+    if (previousProfile) {
+      profile = await db.transaction(async (tx) => {
+        const [updated] = await tx.update(profilesTable)
+          .set({
+            ...parsed.data,
+            name: requestedName,
+            legalName,
+            role,
+            ...(publicNameChanged ? { nameChangedAt: now } : {}),
+            updatedAt: now,
+          })
+          .where(and(
+            eq(profilesTable.userId, userId),
+            eq(profilesTable.name, previousProfile.name),
+            ...(publicNameChanged
+              ? [or(isNull(profilesTable.nameChangedAt), lte(profilesTable.nameChangedAt, new Date(now.getTime() - PUBLIC_NAME_COOLDOWN_MS)))!]
+              : []),
+          ))
+          .returning();
+        if (!updated) return null;
+
+        if (publicNameChanged) {
+          await tx.insert(auditLogsTable).values({
+            adminId: previousProfile.id,
+            adminName: previousProfile.name,
+            action: "public_name_changed",
+            entityType: "profile",
+            entityId: previousProfile.id,
+            entityName: requestedName,
+            details: `Public profile name changed from "${previousProfile.name}" to "${requestedName}".`,
+          });
+        }
+        return updated;
+      });
+      if (!profile) {
+        res.status(409).json({ error: "Your profile changed while saving. Refresh and try again." });
+        return;
+      }
     } else {
       [profile] = await db
         .insert(profilesTable)
-        .values({ userId, ...parsed.data, role })
+        .values({ userId, ...parsed.data, name: requestedName, legalName, role })
         .returning();
     }
 
-    res.json(profile);
+    res.json({ ...profile, legalName: profile.legalName ?? legalName });
   } catch (err) {
     req.log.error({ err }, "profiles.me save request failed");
     res.status(500).json({ error: "Failed to save profile" });
@@ -167,7 +237,7 @@ router.get("/profiles/freelancers", async (req, res): Promise<void> => {
     .from(profilesTable)
     .where(and(...conditions));
 
-  res.json({ freelancers, total: Number(count) });
+  res.json({ freelancers: freelancers.map(withoutPrivateNameFields), total: Number(count) });
 });
 
 // GET /profiles/:id
@@ -188,7 +258,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(profile);
+  res.json(withoutPrivateNameFields(profile));
 });
 
 export { getMyProfileId };

@@ -52,6 +52,7 @@ import type {
   ListNotificationsParams,
   Message,
   MessageListResponse,
+  MyProfile,
   Notification,
   NotificationListResponse,
   Payment,
@@ -182,9 +183,9 @@ export const getGetMyProfileUrl = () => {
 /**
  * @summary Get current user's profile
  */
-export const getMyProfile = async ( options?: RequestInit): Promise<Profile> => {
+export const getMyProfile = async ( options?: RequestInit): Promise<MyProfile> => {
 
-  return customFetch<Profile>(getGetMyProfileUrl(),
+  return customFetch<MyProfile>(getGetMyProfileUrl(),
   {
     ...options,
     method: 'GET'
@@ -259,9 +260,9 @@ export const getUpsertMyProfileUrl = () => {
 /**
  * @summary Create or update current user's profile
  */
-export const upsertMyProfile = async (upsertProfileBody: UpsertProfileBody, options?: RequestInit): Promise<Profile> => {
+export const upsertMyProfile = async (upsertProfileBody: UpsertProfileBody, options?: RequestInit): Promise<MyProfile> => {
 
-  return customFetch<Profile>(getUpsertMyProfileUrl(),
+  return customFetch<MyProfile>(getUpsertMyProfileUrl(),
   {
     ...options,
     method: 'PUT',

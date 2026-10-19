@@ -100,6 +100,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   flag_job:            { label: "Flagged",          color: "bg-red-100 text-red-700" },
   unflag_job:          { label: "Unflagged",        color: "bg-emerald-100 text-emerald-700" },
   change_role:         { label: "Role Changed",     color: "bg-violet-100 text-violet-700" },
+  public_name_changed: { label: "Public Name Changed", color: "bg-sky-100 text-sky-700" },
 };
 
 export default function AdminPage() {

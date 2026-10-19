@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, ilike, and, sql, desc, isNull, lt, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getAuth } from "@clerk/express";
+import { z } from "zod";
 import { isAdminUser } from "../lib/adminAccess";
 import {
   db,
@@ -20,7 +21,7 @@ import {
   AdminFlagJobParams,
   AdminFlagJobBody,
 } from "@workspace/api-zod";
-import { z } from "zod";
+import { withoutPrivateNameFields } from "../lib/profilePrivacy";
 
 const AdminVerifyUserParams = z.object({ id: z.coerce.number().int() });
 const AdminVerifyUserBody = z.object({
@@ -108,7 +109,7 @@ router.get("/admin/users", async (req, res): Promise<void> => {
 
   res.json({
     users: users.map((user) => ({
-      ...user,
+      ...withoutPrivateNameFields(user),
       role: user.userId === userId ? moderator.role : user.role === "admin" ? "freelancer" : user.role,
     })),
     total: Number(count),
@@ -179,7 +180,7 @@ router.patch("/admin/users/:id/block", async (req, res): Promise<void> => {
     details: `${parsed.data.isBlocked ? "Blocked" : "Unblocked"} user "${updated.name}" (${updated.role})`,
   });
 
-  res.json(updated);
+  res.json(withoutPrivateNameFields(updated));
 });
 
 // PATCH /admin/users/:id/verify
@@ -279,7 +280,7 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
     }
   }
 
-  res.json(updated);
+  res.json(withoutPrivateNameFields(updated));
 });
 
 // PATCH /admin/users/:id/role
@@ -319,7 +320,7 @@ router.patch("/admin/users/:id/role", async (req, res): Promise<void> => {
     details: `Changed role of "${updated.name}" to "${parsed.data.role}"`,
   });
 
-  res.json(updated);
+  res.json(withoutPrivateNameFields(updated));
 });
 
 // GET /admin/onboarding-issues

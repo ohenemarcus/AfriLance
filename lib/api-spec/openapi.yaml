@@ -57,7 +57,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Profile"
+                $ref: "#/components/schemas/MyProfile"
         "404":
           description: Profile not found
     put:
@@ -76,7 +76,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Profile"
+                $ref: "#/components/schemas/MyProfile"
 
   /profiles/{id}:
     get:
@@ -1198,6 +1198,7 @@ components:
           type: string
         name:
           type: string
+          maxLength: 120
         bio:
           type: ["string", "null"]
         avatarUrl:
@@ -1276,6 +1277,17 @@ components:
         - completedJobs
         - createdAt
 
+    MyProfile:
+      allOf:
+        - $ref: "#/components/schemas/Profile"
+        - type: object
+          properties:
+            legalName:
+              type: ["string", "null"]
+            nameChangedAt:
+              type: ["string", "null"]
+              format: date-time
+
     PortfolioItem:
       type: object
       properties:
@@ -1300,6 +1312,8 @@ components:
           type: string
         name:
           type: string
+          minLength: 2
+          maxLength: 120
         bio:
           type: ["string", "null"]
         avatarUrl:
