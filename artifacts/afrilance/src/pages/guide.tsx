@@ -31,7 +31,7 @@ const WORKFLOWS = {
     },
     {
       title: "Submit your work for review",
-      detail: "When the project is in progress, use the project panel to post a work summary and attach files. The client can approve it or request revisions.",
+      detail: "After the client’s payment is confirmed in escrow and the project is marked In progress, open the project’s job page from your dashboard, or tap a project notification to go there. In the Project progress panel, enter a work summary, attach up to five files if needed, then select Submit work for review. The client reviews it on that same page and can approve it or request changes. If they request revisions, read their note, update the work, and submit it again.",
       href: "/dashboard",
       action: "Open your dashboard",
     },
