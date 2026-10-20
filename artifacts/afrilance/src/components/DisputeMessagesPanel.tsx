@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { formatRelative } from "@/lib/format";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { DisputeEvidenceFile } from "./DisputeEvidenceFile";
 
 type DisputeMessage = {
   id: number;
@@ -15,7 +16,7 @@ type DisputeMessage = {
   senderRole: string;
   senderIsModerator: boolean;
   recipientName: string;
-  evidence: Array<{ id: number; objectPath: string; fileName: string }>;
+  evidence: Array<{ id: number; objectPath: string; fileName: string; contentType: string }>;
 };
 
 type Participant = { id: number; name: string };
@@ -174,15 +175,12 @@ export function DisputeMessagesPanel({
               {!!message.evidence?.length && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {message.evidence.map((file) => (
-                    <a
+                    <DisputeEvidenceFile
                       key={file.id}
-                      href={file.objectPath.startsWith("/api/storage/") ? file.objectPath : `/api/storage${file.objectPath}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Evidence: {file.fileName}
-                    </a>
+                      objectPath={file.objectPath}
+                      fileName={file.fileName}
+                      contentType={file.contentType}
+                    />
                   ))}
                 </div>
               )}

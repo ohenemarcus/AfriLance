@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { DisputeMessagesPanel } from "@/components/DisputeMessagesPanel";
+import { DisputeEvidenceFile } from "@/components/DisputeEvidenceFile";
 import { formatRelative, formatCurrency } from "@/lib/format";
 import { useAuth } from "@clerk/react";
 
@@ -65,7 +66,7 @@ type AdminDispute = {
   decisionNotes?: string | null;
   payment?: { id: number; amount: number; status: string; jobId: number };
   jobTitle?: string | null;
-  evidence: Array<{ id: number; objectPath: string; fileName: string }>;
+  evidence: Array<{ id: number; objectPath: string; fileName: string; contentType: string }>;
   client?: { id: number; name: string } | null;
   freelancer?: { id: number; name: string } | null;
   createdAt: string;
@@ -828,7 +829,14 @@ export default function AdminPage() {
                     </div>
                     {!!dispute.evidence.length && (
                       <div className="flex flex-wrap gap-2">
-                        {dispute.evidence.map((file) => <a key={file.id} href={file.objectPath.startsWith("/api/storage/") ? file.objectPath : `/api/storage${file.objectPath}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Evidence: {file.fileName}</a>)}
+                        {dispute.evidence.map((file) => (
+                          <DisputeEvidenceFile
+                            key={file.id}
+                            objectPath={file.objectPath}
+                            fileName={file.fileName}
+                            contentType={file.contentType}
+                          />
+                        ))}
                       </div>
                     )}
                     <DisputeMessagesPanel
