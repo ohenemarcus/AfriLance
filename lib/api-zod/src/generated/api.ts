@@ -709,7 +709,17 @@ export const ListConversationsResponse = zod.object({
   "otherUserAvatarUrl": zod.string().nullish(),
   "lastMessage": zod.string().nullish(),
   "lastMessageAt": zod.string().nullish(),
-  "unreadCount": zod.number()
+  "unreadCount": zod.number(),
+  "job": zod.union([zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "status": zod.string(),
+  "budgetMin": zod.number().nullable(),
+  "budgetMax": zod.number().nullable(),
+  "budgetType": zod.string(),
+  "proposalId": zod.number().nullable(),
+  "proposalBidAmount": zod.number().nullable()
+}),zod.null()])
 }))
 })
 
@@ -793,6 +803,7 @@ export const ReportMessageResponse = zod.void()
  * @summary Send a message
  */
 export const SendMessageBody = zod.object({
+  "conversationId": zod.number().optional(),
   "recipientId": zod.number(),
   "content": zod.string(),
   "attachmentUrl": zod.string().optional(),

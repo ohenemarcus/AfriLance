@@ -21,6 +21,7 @@ export * from './auditLog';
 export * from './auditLogListResponse';
 export * from './clientDashboard';
 export * from './conversation';
+export * from './conversationJob';
 export * from './conversationListResponse';
 export * from './createJobBody';
 export * from './createPaymentBody';

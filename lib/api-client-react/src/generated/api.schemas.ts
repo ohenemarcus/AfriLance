@@ -314,6 +314,21 @@ export interface ProposalListResponse {
   total: number;
 }
 
+export interface ConversationJob {
+  id: number;
+  title: string;
+  status: string;
+  /** @nullable */
+  budgetMin: number | null;
+  /** @nullable */
+  budgetMax: number | null;
+  budgetType: string;
+  /** @nullable */
+  proposalId: number | null;
+  /** @nullable */
+  proposalBidAmount: number | null;
+}
+
 export interface Conversation {
   id: number;
   otherUserId: number;
@@ -325,6 +340,7 @@ export interface Conversation {
   /** @nullable */
   lastMessageAt?: string | null;
   unreadCount: number;
+  job: ConversationJob | null;
 }
 
 export interface ConversationListResponse {
@@ -352,6 +368,7 @@ export interface MessageListResponse {
 }
 
 export interface SendMessageBody {
+  conversationId?: number;
   recipientId: number;
   content: string;
   attachmentUrl?: string;

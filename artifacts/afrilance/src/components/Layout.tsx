@@ -25,7 +25,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { data: profile } = useGetMyProfile({ query: { enabled: !!user, queryKey: getGetMyProfileQueryKey() } });
-
   const notifParams = { limit: 1, offset: 0, unreadOnly: true };
   const { data: notifData } = useListNotifications(notifParams, {
     query: {

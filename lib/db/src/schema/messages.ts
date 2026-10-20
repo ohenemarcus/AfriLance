@@ -13,6 +13,8 @@ export const conversationsTable = pgTable("conversations", {
   id: serial("id").primaryKey(),
   participantA: integer("participant_a").notNull(),
   participantB: integer("participant_b").notNull(),
+  jobId: integer("job_id"),
+  proposalId: integer("proposal_id"),
   lastMessage: text("last_message"),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

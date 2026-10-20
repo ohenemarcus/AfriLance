@@ -150,6 +150,26 @@ router.get("/messages/conversations", async (req, res): Promise<void> => {
         .from(profilesTable)
         .where(eq(profilesTable.id, otherId));
 
+      const [job] = c.jobId
+        ? await db
+            .select({
+              id: jobsTable.id,
+              title: jobsTable.title,
+              status: jobsTable.status,
+              budgetMin: jobsTable.budgetMin,
+              budgetMax: jobsTable.budgetMax,
+              budgetType: jobsTable.budgetType,
+            })
+            .from(jobsTable)
+            .where(eq(jobsTable.id, c.jobId))
+        : [];
+      const [proposal] = c.proposalId
+        ? await db
+            .select({ bidAmount: proposalsTable.bidAmount })
+            .from(proposalsTable)
+            .where(eq(proposalsTable.id, c.proposalId))
+        : [];
+
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)` })
         .from(messagesTable)
@@ -169,6 +189,13 @@ router.get("/messages/conversations", async (req, res): Promise<void> => {
         lastMessage: c.lastMessage,
         lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
         unreadCount: Number(count),
+        job: job
+          ? {
+              ...job,
+              proposalId: c.proposalId,
+              proposalBidAmount: proposal?.bidAmount ?? null,
+            }
+          : null,
       };
     }),
   );
@@ -211,15 +238,42 @@ router.post("/messages/conversations/accepted-proposal/:proposalId", async (req,
   let [conversation] = await db
     .select()
     .from(conversationsTable)
-    .where(or(
-      and(eq(conversationsTable.participantA, profile.id), eq(conversationsTable.participantB, otherUserId)),
-      and(eq(conversationsTable.participantA, otherUserId), eq(conversationsTable.participantB, profile.id)),
+    .where(and(
+      or(
+        and(eq(conversationsTable.participantA, profile.id), eq(conversationsTable.participantB, otherUserId)),
+        and(eq(conversationsTable.participantA, otherUserId), eq(conversationsTable.participantB, profile.id)),
+      ),
+      eq(conversationsTable.jobId, row.job.id),
     ));
 
   if (!conversation) {
     [conversation] = await db
+      .select()
+      .from(conversationsTable)
+      .where(and(
+        or(
+          and(eq(conversationsTable.participantA, profile.id), eq(conversationsTable.participantB, otherUserId)),
+          and(eq(conversationsTable.participantA, otherUserId), eq(conversationsTable.participantB, profile.id)),
+        ),
+        sql`${conversationsTable.jobId} IS NULL`,
+      ));
+  }
+
+  if (conversation) {
+    [conversation] = await db
+      .update(conversationsTable)
+      .set({ jobId: row.job.id, proposalId: row.proposal.id })
+      .where(eq(conversationsTable.id, conversation.id))
+      .returning();
+  } else {
+    [conversation] = await db
       .insert(conversationsTable)
-      .values({ participantA: profile.id, participantB: otherUserId })
+      .values({
+        participantA: profile.id,
+        participantB: otherUserId,
+        jobId: row.job.id,
+        proposalId: row.proposal.id,
+      })
       .returning();
   }
 
@@ -322,22 +376,44 @@ router.post("/messages", async (req, res): Promise<void> => {
     return;
   }
 
-  // Find or create conversation
-  let [conversation] = await db
-    .select()
-    .from(conversationsTable)
-    .where(
-      or(
-        and(
-          eq(conversationsTable.participantA, profile.id),
-          eq(conversationsTable.participantB, parsed.data.recipientId),
-        ),
-        and(
-          eq(conversationsTable.participantA, parsed.data.recipientId),
-          eq(conversationsTable.participantB, profile.id),
-        ),
-      ),
-    );
+  // Prefer the selected conversation so messages stay in the right job thread.
+  let [conversation] = parsed.data.conversationId !== undefined
+    ? await db
+        .select()
+        .from(conversationsTable)
+        .where(and(
+          eq(conversationsTable.id, parsed.data.conversationId),
+          or(
+            and(
+              eq(conversationsTable.participantA, profile.id),
+              eq(conversationsTable.participantB, parsed.data.recipientId),
+            ),
+            and(
+              eq(conversationsTable.participantA, parsed.data.recipientId),
+              eq(conversationsTable.participantB, profile.id),
+            ),
+          ),
+        ))
+    : await db
+        .select()
+        .from(conversationsTable)
+        .where(
+          or(
+            and(
+              eq(conversationsTable.participantA, profile.id),
+              eq(conversationsTable.participantB, parsed.data.recipientId),
+            ),
+            and(
+              eq(conversationsTable.participantA, parsed.data.recipientId),
+              eq(conversationsTable.participantB, profile.id),
+            ),
+          ),
+        );
+
+  if (parsed.data.conversationId !== undefined && !conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
 
   const isNewConversation = !conversation;
 

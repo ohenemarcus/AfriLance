@@ -1680,11 +1680,45 @@ components:
           type: ["string", "null"]
         unreadCount:
           type: integer
+        job:
+          oneOf:
+            - $ref: "#/components/schemas/ConversationJob"
+            - type: "null"
       required:
         - id
         - otherUserId
         - otherUserName
         - unreadCount
+        - job
+
+    ConversationJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+        budgetMin:
+          type: ["number", "null"]
+        budgetMax:
+          type: ["number", "null"]
+        budgetType:
+          type: string
+        proposalId:
+          type: ["integer", "null"]
+        proposalBidAmount:
+          type: ["number", "null"]
+      required:
+        - id
+        - title
+        - status
+        - budgetMin
+        - budgetMax
+        - budgetType
+        - proposalId
+        - proposalBidAmount
 
     ConversationListResponse:
       type: object
@@ -1744,6 +1778,8 @@ components:
     SendMessageBody:
       type: object
       properties:
+        conversationId:
+          type: integer
         recipientId:
           type: integer
         content:

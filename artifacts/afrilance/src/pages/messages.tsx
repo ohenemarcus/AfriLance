@@ -12,7 +12,7 @@ import { useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-
 import { useAuth } from "@clerk/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
-import { formatRelative } from "@/lib/format";
+import { formatBudget, formatCurrency, formatRelative } from "@/lib/format";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ArrowLeft, FileText, Flag, ImagePlus, Search, X } from "lucide-react";
 
@@ -127,7 +127,7 @@ export default function MessagesPage() {
   });
 
   const visibleConversations = conversationsData?.conversations.filter((conversation) =>
-    `${conversation.otherUserName} ${conversation.lastMessage ?? ""}`
+    `${conversation.otherUserName} ${conversation.lastMessage ?? ""} ${conversation.job?.title ?? ""}`
       .toLowerCase()
       .includes(conversationSearch.trim().toLowerCase()),
   );
@@ -200,6 +200,7 @@ export default function MessagesPage() {
     sendMessage(
       {
         data: {
+          conversationId: selectedConversation,
           recipientId: selectedConvo.otherUserId,
           content: newMessage.trim(),
           ...(attachmentUrl && attachment ? {
@@ -303,6 +304,9 @@ export default function MessagesPage() {
                     {c.lastMessage && (
                       <div className="text-xs text-muted-foreground truncate mt-0.5">{c.lastMessage}</div>
                     )}
+                    {c.job && (
+                      <div className="text-xs text-primary truncate mt-0.5">{c.job.title}</div>
+                    )}
                     {c.lastMessageAt && (
                       <div className="text-xs text-muted-foreground mt-0.5">{formatRelative(c.lastMessageAt)}</div>
                     )}
@@ -335,9 +339,29 @@ export default function MessagesPage() {
                 <UserAvatar name={selectedConvo?.otherUserName} avatarUrl={selectedConvo?.otherUserAvatarUrl} size="sm" />
                 <div className="min-w-0">
                   <span className="block truncate font-medium text-foreground">{selectedConvo?.otherUserName}</span>
-                  {otherUserTyping?.isTyping && <span className="text-xs text-muted-foreground">Typing...</span>}
+                  {otherUserTyping?.isTyping && <span aria-live="polite" className="text-xs text-muted-foreground">Typing…</span>}
                 </div>
               </div>
+
+              {selectedConvo?.job && (
+                <div className="border-b border-border bg-muted/30 px-4 py-3 sm:px-5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Job conversation</p>
+                      <p className="truncate text-sm font-semibold text-foreground">{selectedConvo.job.title}</p>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium capitalize text-primary">
+                      {selectedConvo.job.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Budget: {formatBudget(selectedConvo.job.budgetMin, selectedConvo.job.budgetMax, selectedConvo.job.budgetType)}</span>
+                    {selectedConvo.job.proposalBidAmount != null && (
+                      <span>Proposal: {formatCurrency(selectedConvo.job.proposalBidAmount)}</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">

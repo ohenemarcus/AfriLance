@@ -7,6 +7,7 @@
  */
 
 export interface SendMessageBody {
+  conversationId?: number;
   recipientId: number;
   content: string;
   attachmentUrl?: string;

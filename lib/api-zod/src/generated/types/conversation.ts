@@ -5,6 +5,7 @@
  * Afrlance freelance marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { ConversationJob } from './conversationJob';
 
 export interface Conversation {
   id: number;
@@ -17,4 +18,5 @@ export interface Conversation {
   /** @nullable */
   lastMessageAt?: string | null;
   unreadCount: number;
+  job: ConversationJob | null;
 }

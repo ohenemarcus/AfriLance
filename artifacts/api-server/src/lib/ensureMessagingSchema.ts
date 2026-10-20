@@ -6,6 +6,8 @@ export async function ensureMessagingSchema(): Promise<void> {
       id serial PRIMARY KEY,
       participant_a integer NOT NULL,
       participant_b integer NOT NULL,
+      job_id integer,
+      proposal_id integer,
       last_message text,
       last_message_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
@@ -34,6 +36,8 @@ export async function ensureMessagingSchema(): Promise<void> {
 
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS participant_a integer;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS participant_b integer;
+    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS job_id integer;
+    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS proposal_id integer;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_message text;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_message_at timestamptz;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
