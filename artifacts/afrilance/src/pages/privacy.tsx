@@ -22,8 +22,8 @@ export default function PrivacyPage() {
       version={CURRENT_PRIVACY_VERSION}
     >
       <p>
-        This Privacy Policy explains how MB Corporation, trading as AfriLance
-        (“AfriLance”, “we”, “us” or “our”), collects, uses, stores, and shares
+        This Privacy Policy explains how MB Corporation, trading as Afrlance
+        (“Afrlance”, “we”, “us” or “our”), collects, uses, stores, and shares
         personal data when you use our website, applications, and marketplace.
         It applies to people in Ghana and other users of the Platform. Read it
         together with our Terms of Service.
@@ -70,7 +70,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="3. How and why we use personal data">
-        <p>We use personal data only for purposes connected to operating and protecting AfriLance, including to:</p>
+        <p>We use personal data only for purposes connected to operating and protecting Afrlance, including to:</p>
         <ul className="list-disc space-y-2 pl-6">
           <li>create and secure accounts, authenticate users, and provide requested marketplace features;</li>
           <li>display profiles and listings according to your settings, and help clients and service providers communicate;</li>
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
 
       <Section title="6. Storage and transfers">
         <p>
-          AfriLance and its service providers may store or process information
+          Afrlance and its service providers may store or process information
           in Ghana or in other countries where their systems operate. Where
           personal data is transferred outside Ghana, we will take steps
           required by Act 843 and other applicable law to protect it and ensure
@@ -164,7 +164,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           To make a request, contact MB Corporation using the contact channel
-          published on AfriLance or in the Platform and describe the request
+          published on Afrlance or in the Platform and describe the request
           clearly. We may ask for information needed to verify your identity
           and locate your records. We will respond within the period required
           by applicable law. A request may be limited where the law permits,
@@ -219,7 +219,7 @@ export default function PrivacyPage() {
       <Section title="12. Contact and complaints">
         <p>
           For questions or requests about personal data, contact MB
-          Corporation through the contact channel published on AfriLance or in
+          Corporation through the contact channel published on Afrlance or in
           the Platform. You may also contact the Data Protection Commission of
           Ghana to seek information or make a complaint under Act 843. Our
           Terms of Service are available in the <Link className="font-medium text-primary underline underline-offset-4" to="/terms">Terms of Service</Link>.

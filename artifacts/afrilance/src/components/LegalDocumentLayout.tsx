@@ -15,13 +15,13 @@ export function LegalDocumentLayout({
       <article className="mx-auto max-w-4xl rounded-2xl border border-border bg-card px-5 py-8 shadow-sm sm:px-10 sm:py-12">
         <header className="mb-10 border-b border-border pb-6">
           <Link to="/" className="text-sm font-semibold text-primary hover:underline">
-            AfriLance
+            Afrlance
           </Link>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {title}
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Version {version} · Effective 17 October 2026
+            Version {version} · Effective 20 October 2026
           </p>
         </header>
         <div className="legal-document space-y-8 text-sm leading-7 text-foreground sm:text-base">
@@ -30,7 +30,7 @@ export function LegalDocumentLayout({
         <nav aria-label="Other legal documents" className="mt-12 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-6 text-sm">
           <Link to="/terms" className="font-medium text-primary hover:underline">Terms of Service</Link>
           <Link to="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>
-          <Link to="/" className="font-medium text-primary hover:underline">Return to AfriLance</Link>
+          <Link to="/" className="font-medium text-primary hover:underline">Return to Afrlance</Link>
         </nav>
       </article>
     </main>

@@ -132,7 +132,7 @@ function GettingStartedChecklist({
           <h2 id="getting-started-title" className="font-semibold text-foreground">Your next steps</h2>
           <p className="mt-1 text-sm text-muted-foreground">{completedCount} of {steps.length} setup steps complete</p>
         </div>
-        <Link to="/guide" className="text-sm font-medium text-primary hover:underline">How to use AfriLance</Link>
+        <Link to="/guide" className="text-sm font-medium text-primary hover:underline">How to use Afrlance</Link>
       </div>
       <div className="mt-4 space-y-3">
         {steps.map((step) => (

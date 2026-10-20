@@ -99,8 +99,8 @@ export default function GuidePage() {
     <main className="min-h-[70vh] bg-background px-4 py-10 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-4xl">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold text-primary">AfriLance guide</p>
-          <h1 className="mt-2 text-3xl font-bold text-foreground">How to use AfriLance</h1>
+          <p className="text-sm font-semibold text-primary">Afrlance guide</p>
+          <h1 className="mt-2 text-3xl font-bold text-foreground">How to use Afrlance</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">Follow the steps for your role. You can switch roles at any time to see the other workflow.</p>
         </div>
 

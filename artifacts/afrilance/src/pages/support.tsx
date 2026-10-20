@@ -54,7 +54,7 @@ export default function SupportPage() {
     <main className="min-h-[70vh] bg-background px-4 py-10 sm:px-6 sm:py-14">
       <div className="mx-auto grid max-w-5xl gap-10 md:grid-cols-[minmax(0,1fr)_300px]">
         <section>
-          <p className="text-sm font-semibold text-primary">AfriLance support</p>
+          <p className="text-sm font-semibold text-primary">Afrlance support</p>
           <h1 className="mt-2 text-3xl font-bold text-foreground">How can we help?</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Send our team a message about your account, a project, or a payment. We’ll reply to the email address you provide.</p>
 

@@ -84,7 +84,7 @@ const clerkAppearance = {
   options: {
     logoPlacement: "inside" as const,
     logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/afrilance-logo-nav.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/afrlance-logo-nav.svg`,
   },
   variables: {
     colorPrimary: "hsl(151, 68%, 14%)",
@@ -378,12 +378,12 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
       <section className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-10">
-        <p className="text-sm font-semibold text-primary">AfriLance legal update</p>
+        <p className="text-sm font-semibold text-primary">Afrlance legal update</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           Review and accept our current policies
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          To continue using your account and AfriLance features, review the current
+          To continue using your account and Afrlance features, review the current
           documents and confirm your agreement. Your acceptance will be recorded
           with the date and document versions.
         </p>
@@ -541,13 +541,13 @@ function ClerkProviderWithRoutes() {
   const localization = {
   signIn: {
     start: {
-      title: "Welcome back to AfriLance",
+      title: "Welcome back to Afrlance",
       subtitle: "Sign in to access your account",
     },
   },
   signUp: {
     start: {
-      title: "Join AfriLance",
+      title: "Join Afrlance",
       subtitle: "Connect with top African talent and opportunities",
     },
   },

@@ -21,8 +21,8 @@ export default function TermsPage() {
     >
       <p>
         These Terms of Service (“Terms”) are an agreement between you and MB
-        Corporation, trading as AfriLance (“AfriLance”, “we”, “us” or “our”).
-        They govern your access to and use of the AfriLance website, applications,
+        Corporation, trading as Afrlance (“Afrlance”, “we”, “us” or “our”).
+        They govern your access to and use of the Afrlance website, applications,
         and related services (the “Platform”). By creating an account, selecting
         “I agree”, or using the Platform after being asked to accept these Terms,
         you agree to them. If you do not agree, do not use the Platform.
@@ -39,13 +39,13 @@ export default function TermsPage() {
         <p>Do not create an account for another person without authority, impersonate anyone, or use the Platform while prohibited by law. We may request information reasonably needed to protect accounts, comply with law, or operate the Platform.</p>
       </Section>
 
-      <Section title="2. AfriLance is a marketplace facilitator">
-        <p>AfriLance provides an online marketplace that helps clients discover independent service providers, publish opportunities, communicate, and arrange work. Except for obligations we expressly undertake as the provider of the Platform or payment-related services described to you, AfriLance is a facilitator and is not a party to the service contract between a client and a service provider.</p>
-        <p>Users—not AfriLance—choose whether to work together and are responsible for agreeing the scope, deliverables, schedule, price, payment milestones, acceptance criteria, and any other project terms. AfriLance does not employ, supervise, or guarantee either party; verify every user or listing; guarantee a project, payment, result, quality, or a user's identity; or act as an agent, employer, recruiter, or legal representative for a user. Users should perform their own checks and put important project terms in writing.</p>
+      <Section title="2. Afrlance is a marketplace facilitator">
+        <p>Afrlance provides an online marketplace that helps clients discover independent service providers, publish opportunities, communicate, and arrange work. Except for obligations we expressly undertake as the provider of the Platform or payment-related services described to you, Afrlance is a facilitator and is not a party to the service contract between a client and a service provider.</p>
+        <p>Users—not Afrlance—choose whether to work together and are responsible for agreeing the scope, deliverables, schedule, price, payment milestones, acceptance criteria, and any other project terms. Afrlance does not employ, supervise, or guarantee either party; verify every user or listing; guarantee a project, payment, result, quality, or a user's identity; or act as an agent, employer, recruiter, or legal representative for a user. Users should perform their own checks and put important project terms in writing.</p>
       </Section>
 
       <Section title="3. Independent contractor relationship">
-        <p>Service providers using AfriLance do so as independent businesses or independent contractors, not as employees, workers, partners, or agents of AfriLance. A service provider is not entitled, by reason only of using the Platform, to wages, employee benefits, paid leave, pension contributions, or other employment benefits from AfriLance. The client and service provider are independently responsible for determining and documenting their relationship and complying with applicable labour, social security, and other laws.</p>
+        <p>Service providers using Afrlance do so as independent businesses or independent contractors, not as employees, workers, partners, or agents of Afrlance. A service provider is not entitled, by reason only of using the Platform, to wages, employee benefits, paid leave, pension contributions, or other employment benefits from Afrlance. The client and service provider are independently responsible for determining and documenting their relationship and complying with applicable labour, social security, and other laws.</p>
         <p>Nothing in these Terms changes a legal classification that must be determined under applicable law from the actual facts and working arrangements. The label “independent contractor” cannot override mandatory legal rights or obligations.</p>
       </Section>
 
@@ -55,7 +55,7 @@ export default function TermsPage() {
       </Section>
 
       <Section title="5. Projects, communications, and user disputes">
-        <p>Before starting work, clients and service providers should agree in writing on the work, deadlines, payment, expenses, revisions, cancellation, and ownership or licensing of deliverables. Unless a separate written agreement or applicable law says otherwise, AfriLance does not decide whether a deliverable satisfies a project contract or resolve the merits of a user-to-user claim.</p>
+        <p>Before starting work, clients and service providers should agree in writing on the work, deadlines, payment, expenses, revisions, cancellation, and ownership or licensing of deliverables. Unless a separate written agreement or applicable law says otherwise, Afrlance does not decide whether a deliverable satisfies a project contract or resolve the merits of a user-to-user claim.</p>
         <p>Users are responsible for their communications and project decisions. We may offer tools or assistance at our discretion, but doing so does not make us a party to a user contract or guarantee a resolution.</p>
       </Section>
 
@@ -65,12 +65,12 @@ export default function TermsPage() {
       </Section>
 
       <Section title="7. Taxes and statutory obligations">
-        <p>Each user is responsible for determining, reporting, and paying their own taxes and statutory contributions arising from their use of the Platform or work arranged through it, including any applicable income tax, value added tax, withholding tax, or social security obligations in Ghana. Service providers should obtain their own advice from the Ghana Revenue Authority or a qualified tax professional. AfriLance does not provide tax advice and does not assume a user's tax obligations, except to the extent a non-waivable law expressly requires otherwise.</p>
+        <p>Each user is responsible for determining, reporting, and paying their own taxes and statutory contributions arising from their use of the Platform or work arranged through it, including any applicable income tax, value added tax, withholding tax, or social security obligations in Ghana. Service providers should obtain their own advice from the Ghana Revenue Authority or a qualified tax professional. Afrlance does not provide tax advice and does not assume a user's tax obligations, except to the extent a non-waivable law expressly requires otherwise.</p>
       </Section>
 
       <Section title="8. Intellectual property">
-        <p>AfriLance and its licensors retain rights in the Platform, branding, software, and related materials. You may use the Platform only as permitted by these Terms and applicable law.</p>
-        <p>You retain rights in content you submit, subject to rights you grant to other users and any project agreement. You grant AfriLance a limited, non-exclusive, worldwide, royalty-free licence to host, reproduce, display, and process your content only as reasonably necessary to operate, secure, and improve the Platform and provide its features. You confirm that you have the rights needed to submit that content. Ownership or licensing of work created for a client should be expressly agreed between the client and service provider; AfriLance does not transfer ownership on their behalf.</p>
+        <p>Afrlance and its licensors retain rights in the Platform, branding, software, and related materials. You may use the Platform only as permitted by these Terms and applicable law.</p>
+        <p>You retain rights in content you submit, subject to rights you grant to other users and any project agreement. You grant Afrlance a limited, non-exclusive, worldwide, royalty-free licence to host, reproduce, display, and process your content only as reasonably necessary to operate, secure, and improve the Platform and provide its features. You confirm that you have the rights needed to submit that content. Ownership or licensing of work created for a client should be expressly agreed between the client and service provider; Afrlance does not transfer ownership on their behalf.</p>
       </Section>
 
       <Section title="9. Privacy and electronic transactions">
@@ -89,12 +89,12 @@ export default function TermsPage() {
       </Section>
 
       <Section title="12. Limitation of liability">
-        <p>To the extent permitted by the laws of the Republic of Ghana, AfriLance is not liable for indirect or consequential loss, loss of profit, opportunity, goodwill, data, or business, or for a user's acts, omissions, services, contract, or content. This does not exclude liability that cannot lawfully be excluded, including liability arising from fraud or wilful misconduct where exclusion is prohibited.</p>
-        <p>To the extent liability may lawfully be limited, AfriLance's total aggregate liability arising out of or connected with the Platform or these Terms will not exceed the greater of GHS 1,000 and the Platform fees you paid or owed to AfriLance in the 12 months before the event giving rise to the claim. This limit does not apply to liability that applicable law does not permit us to limit.</p>
+        <p>To the extent permitted by the laws of the Republic of Ghana, Afrlance is not liable for indirect or consequential loss, loss of profit, opportunity, goodwill, data, or business, or for a user's acts, omissions, services, contract, or content. This does not exclude liability that cannot lawfully be excluded, including liability arising from fraud or wilful misconduct where exclusion is prohibited.</p>
+        <p>To the extent liability may lawfully be limited, Afrlance's total aggregate liability arising out of or connected with the Platform or these Terms will not exceed the greater of GHS 1,000 and the Platform fees you paid or owed to Afrlance in the 12 months before the event giving rise to the claim. This limit does not apply to liability that applicable law does not permit us to limit.</p>
       </Section>
 
       <Section title="13. Indemnity">
-        <p>To the extent permitted by law, you will indemnify AfriLance against a third-party claim and reasonable associated costs to the extent caused by your unlawful conduct, your content, your breach of these Terms, or your violation of another person's rights. We will give you reasonably prompt notice of a claim and reasonable cooperation; you may not settle a claim in a way that imposes an admission or obligation on AfriLance without our prior written consent. This clause does not require you to indemnify AfriLance for loss caused by AfriLance's own breach, negligence, or wilful misconduct.</p>
+        <p>To the extent permitted by law, you will indemnify Afrlance against a third-party claim and reasonable associated costs to the extent caused by your unlawful conduct, your content, your breach of these Terms, or your violation of another person's rights. We will give you reasonably prompt notice of a claim and reasonable cooperation; you may not settle a claim in a way that imposes an admission or obligation on Afrlance without our prior written consent. This clause does not require you to indemnify Afrlance for loss caused by Afrlance's own breach, negligence, or wilful misconduct.</p>
       </Section>
 
       <Section title="14. Changes to the Platform or these Terms">
@@ -107,11 +107,11 @@ export default function TermsPage() {
       </Section>
 
       <Section title="16. General">
-        <p>If a provision is found unenforceable, it will be limited only to the extent necessary, and the remaining provisions will continue. A failure to enforce a provision is not a waiver. You may not transfer your rights or obligations under these Terms without our consent; we may transfer them as part of a lawful corporate reorganisation or transfer of the Platform, without reducing your statutory rights. These Terms, together with the Privacy Policy and any expressly incorporated terms, form the agreement between you and AfriLance about use of the Platform.</p>
+        <p>If a provision is found unenforceable, it will be limited only to the extent necessary, and the remaining provisions will continue. A failure to enforce a provision is not a waiver. You may not transfer your rights or obligations under these Terms without our consent; we may transfer them as part of a lawful corporate reorganisation or transfer of the Platform, without reducing your statutory rights. These Terms, together with the Privacy Policy and any expressly incorporated terms, form the agreement between you and Afrlance about use of the Platform.</p>
       </Section>
 
       <Section title="17. Contact">
-        <p>For questions about these Terms, contact MB Corporation through the contact channel published on AfriLance or in the Platform. For privacy matters, see the contact and complaint information in the Privacy Policy.</p>
+        <p>For questions about these Terms, contact MB Corporation through the contact channel published on Afrlance or in the Platform. For privacy matters, see the contact and complaint information in the Privacy Policy.</p>
       </Section>
     </LegalDocumentLayout>
   );

@@ -369,7 +369,7 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
     const transferCode = await initiateTransfer({
       recipientCode,
       amount: existing.amount,
-      reason: `AfriLance escrow release for payment #${existing.id}`,
+      reason: `Afrlance escrow release for payment #${existing.id}`,
       reference: transferRef,
     });
 

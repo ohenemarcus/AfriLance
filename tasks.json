@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "AfriLance API",
+      "label": "Afrlance API",
       "type": "shell",
       "command": "pnpm --filter @workspace/api-server run dev",
       "isBackground": true,
@@ -14,7 +14,7 @@
       }
     },
     {
-      "label": "AfriLance web",
+      "label": "Afrlance web",
       "type": "shell",
       "command": "pnpm --filter @workspace/afrilance run dev",
       "isBackground": true,
@@ -26,8 +26,8 @@
       }
     },
     {
-      "label": "AfriLance: local",
-      "dependsOn": ["AfriLance API", "AfriLance web"],
+      "label": "Afrlance: local",
+      "dependsOn": ["Afrlance API", "Afrlance web"],
       "dependsOrder": "parallel",
       "problemMatcher": []
     }

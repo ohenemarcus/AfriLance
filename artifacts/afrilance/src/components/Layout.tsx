@@ -48,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-              <img src={`${basePath}/afrilance-logo-nav.svg`} alt="AfriLance" className="h-9 w-auto object-contain" />
+              <img src={`${basePath}/afrlance-logo-nav.svg`} alt="Afrlance" className="h-9 w-auto object-contain" />
             </Link>
 
             {/* Desktop Nav */}
@@ -193,7 +193,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-accent"
                         >
-                          How to use AfriLance
+                          How to use Afrlance
                         </Link>
                         <div className="border-t border-border my-1" />
                         <button
@@ -307,7 +307,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   Help &amp; Support
                 </Link>
                 <Link to="/guide" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
-                  How to use AfriLance
+                  How to use Afrlance
                 </Link>
                 {canModerate && (
                   <Link to="/admin" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent rounded-lg">
@@ -334,7 +334,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl font-bold tracking-tight">
-                  <span className="text-primary-foreground">Afri</span><span style={{ color: "#FF7A00" }}>Lance</span>
+                  <span className="text-primary-foreground">Afr</span><span style={{ color: "#FF7A00" }}>lance</span>
                 </span>
               </div>
               <p className="text-sm text-primary-foreground/70 max-w-xs">
@@ -362,7 +362,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-primary-foreground/20 text-center text-sm text-primary-foreground/50"> All rights reserved.
-            &copy; {new Date().getFullYear()} MB Corporation, AfriLance. Built for Africa.
+            &copy; {new Date().getFullYear()} MB Corporation, Afrlance. Built for Africa.
           </div>
         </div>
       </footer>

@@ -89,7 +89,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-2xl">
         {/* Logo */}
         <div className="text-center mb-10">
-          <img src={`${basePath}/logo.svg`} alt="AfriLance" className="h-10 mx-auto mb-4" />
+          <img src={`${basePath}/logo.svg`} alt="Afrlance" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Set up your profile</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Step {step} of 2 — {step === 1 ? "Choose your role" : "Fill in your details"}
