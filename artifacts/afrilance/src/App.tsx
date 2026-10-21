@@ -8,6 +8,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
+import { LegalReviewDialog } from "@/components/LegalReviewDialog";
 import { useGetMyProfile, getGetMyProfileQueryKey, setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
 // lib\api-client-react\src\custom-fetch.ts
 
@@ -30,7 +31,6 @@ import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import SupportPage from "@/pages/support";
 import GuidePage from "@/pages/guide";
-import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@workspace/api-zod";
 
 const LEGAL_SIGNUP_CONSENT_KEY = "afrilance-legal-consent-pending";
 const legalAcceptanceUrl = `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "")}/api/legal/acceptance`;
@@ -187,38 +187,28 @@ function SignInPage() {
 
 function SignUpPage() {
   const [accepted, setAccepted] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
-  const handleConsentChange = (checked: boolean) => {
-    setAccepted(checked);
-    if (checked) {
-      sessionStorage.setItem(LEGAL_SIGNUP_CONSENT_KEY, "true");
-    } else {
-      sessionStorage.removeItem(LEGAL_SIGNUP_CONSENT_KEY);
-    }
+  const handleAcceptPolicies = () => {
+    sessionStorage.setItem(LEGAL_SIGNUP_CONSENT_KEY, "true");
+    setAccepted(true);
+    setReviewOpen(false);
   };
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-4">
-        <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
-          <input
-            type="checkbox"
-            checked={accepted}
-            onChange={(event) => handleConsentChange(event.target.checked)}
-            className="mt-1 size-4 shrink-0 accent-primary"
-          />
-          <span>
-            I have read and agree to the{" "}
-            <a href={`${basePath}/terms`} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href={`${basePath}/privacy`} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">
-              Privacy Policy
-            </a>
-            .
-          </span>
-        </label>
+        <section className="rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
+          <p>Review our current Terms of Service and Privacy Policy before creating your account.</p>
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            className="mt-3 font-semibold text-primary underline underline-offset-4"
+          >
+            {accepted ? "View accepted policies" : "Review policies"}
+          </button>
+          {accepted && <p role="status" className="mt-2 text-xs text-green-700 dark:text-green-400">Policies accepted. You can continue with sign up.</p>}
+        </section>
         <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
           <p className="font-semibold">Password requirements</p>
           <ul className="mt-2 space-y-1 text-muted-foreground">
@@ -236,10 +226,18 @@ function SignUpPage() {
           />
         ) : (
           <p className="text-center text-sm text-muted-foreground">
-            Accept the Terms of Service and Privacy Policy to continue.
+            Review and accept the policies to continue.
           </p>
         )}
       </div>
+      <LegalReviewDialog
+        open={reviewOpen}
+        title="Review and accept our policies"
+        acceptLabel="Agree and continue"
+        dismissible
+        onDismiss={() => setReviewOpen(false)}
+        onAccept={handleAcceptPolicies}
+      />
     </div>
   );
 }
@@ -250,7 +248,6 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"accepted" | "required" | "error" | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [checked, setChecked] = useState(false);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const isPublicLegalOrAuthPage = ["/terms", "/privacy", "/support", "/guide", "/sign-in", "/sign-up"].includes(path);
@@ -337,7 +334,6 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
       });
       if (!response.ok) throw new Error("Unable to save your acceptance. Please try again.");
       setStatus("accepted");
-      setChecked(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save your acceptance.");
     } finally {
@@ -376,47 +372,19 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
-      <section className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-10">
-        <p className="text-sm font-semibold text-primary">Afrlance legal update</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Review and accept our current policies
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          To continue using your account and Afrlance features, review the current
-          documents and confirm your agreement. Your acceptance will be recorded
-          with the date and document versions.
-        </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <a href={`${basePath}/terms`} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border p-4 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary">
-            <span className="block font-semibold text-foreground">Terms of Service</span>
-            <span className="mt-1 block text-xs text-muted-foreground">Version {CURRENT_TERMS_VERSION}</span>
-          </a>
-          <a href={`${basePath}/privacy`} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border p-4 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary">
-            <span className="block font-semibold text-foreground">Privacy Policy</span>
-            <span className="mt-1 block text-xs text-muted-foreground">Version {CURRENT_PRIVACY_VERSION}</span>
-          </a>
-        </div>
-        <label className="mt-6 flex items-start gap-3 text-sm leading-6 text-foreground">
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(event) => setChecked(event.target.checked)}
-            className="mt-1 size-4 shrink-0 accent-primary"
-          />
-          <span>I have read and agree to the Terms of Service and Privacy Policy.</span>
-        </label>
-        {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-        <button
-          type="button"
-          onClick={acceptCurrentDocuments}
-          disabled={!checked || saving}
-          className="mt-6 w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "Saving acceptance…" : "Accept and continue"}
-        </button>
-      </section>
-    </main>
+    <>
+      <div aria-hidden="true" className="pointer-events-none select-none">
+        {children}
+      </div>
+      <LegalReviewDialog
+        open
+        title="Review and accept our current policies"
+        acceptLabel="Accept and continue"
+        saving={saving}
+        error={error}
+        onAccept={() => void acceptCurrentDocuments()}
+      />
+    </>
   );
 }
 

@@ -125,7 +125,7 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
       : "Your work is with the client for review. They can approve it or request revisions.",
     awaiting_release: isClient
       ? "Work is approved. Release the escrowed payment from the Payments page to finish the project."
-      : "The client approved your work. The payout is ready to be released.",
+      : "The client approved your work. They can release payment to the bank or Mobile Money method you saved in Payments.",
     completed: "The project is complete and the Paystack transfer has been confirmed.",
     cancelled: "The client cancelled this hire before payment was started.",
     closed: "This listing is closed and is not accepting proposals.",
@@ -283,7 +283,7 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
                     <button type="submit" disabled={busy || revisionNote.trim().length < 5} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-background disabled:opacity-50">Request revisions</button>
                   </form>
                   <div className="flex flex-col items-start justify-end gap-2">
-                    <p className="text-xs leading-5 text-muted-foreground">Approving moves this project to payout. You’ll confirm the freelancer’s payout details on the Payments page.</p>
+                    <p className="text-xs leading-5 text-muted-foreground">After approval, release the payment from Payments. It will be sent to the freelancer’s saved payout method; their account details stay private.</p>
                     <button type="button" onClick={() => void approveWork()} disabled={busy} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{busy ? "Saving…" : "Approve work"}</button>
                   </div>
                 </div>

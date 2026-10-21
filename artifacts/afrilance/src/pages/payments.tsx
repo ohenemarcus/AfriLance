@@ -703,9 +703,14 @@ export default function PaymentsPage() {
       <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
         <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">How Escrow Works</h3>
         <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-0.5 list-decimal list-inside">
-          <li>Client creates a payment — funds are charged via Paystack and held in escrow</li>
-          <li>Freelancer completes the work</li>
-          <li>Client releases — funds are sent to the freelancer's saved bank account or MoMo wallet; payout details stay private</li>
+          <li>The client funds the accepted project through Paystack. Work begins after the payment is confirmed and marked In escrow.</li>
+          <li>The freelancer submits completed work for review. The client can approve it or request revisions.</li>
+          {profile?.role === "freelancer" ? (
+            <li>Save a verified bank or Mobile Money payout method here. After the client releases payment, Paystack transfers it there; the client never sees your account details.</li>
+          ) : (
+            <li>After approving the work, release payment here. AfriLance sends it to the freelancer’s saved payout method—you do not need to enter their account details.</li>
+          )}
+          <li>Follow the payment status here while Paystack processes the transfer.</li>
         </ol>
       </div>
 

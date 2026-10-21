@@ -25,7 +25,7 @@ const WORKFLOWS = {
     },
     {
       title: "Wait for acceptance and funding",
-      detail: "If a client accepts your proposal, the job moves to awaiting funding. Work only begins after payment is confirmed in escrow.",
+      detail: "If a client accepts your proposal, the job moves to awaiting funding. Work only begins after the client’s payment is confirmed in escrow. Add your verified bank or Mobile Money payout method in Payments before the client approves your work, so payment can be sent without asking the client for your account details.",
       href: "/proposals",
       action: "Track proposals",
     },
@@ -37,9 +37,9 @@ const WORKFLOWS = {
     },
     {
       title: "Get paid after approval",
-      detail: "Once the client approves your work, the payout is processed. You can track the payment status in Payments and leave a review after completion.",
+      detail: "Once the client approves your work, they release the escrowed payment. AfriLance sends it to the payout method you saved in Payments; clients cannot view or edit your bank or Mobile Money details. Track the payout status there and leave a review after completion.",
       href: "/payments",
-      action: "Check payments",
+      action: "Set up payout and check payments",
     },
   ],
   client: [
@@ -75,7 +75,7 @@ const WORKFLOWS = {
     },
     {
       title: "Approve work and release payment",
-      detail: "After reviewing the work, approve it or request revisions. Once approved, release the payment from Payments to complete the job.",
+      detail: "Review the submission on the project page and approve it or request revisions. After approval, release the payment from Payments. AfriLance sends it to the freelancer’s verified payout method; you do not need to collect or enter their bank or Mobile Money details. You can follow the transfer status in Payments.",
       href: "/payments",
       action: "Release payout",
     },
