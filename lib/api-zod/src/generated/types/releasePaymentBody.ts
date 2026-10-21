@@ -6,5 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ReleasePaymentBody {
-}
+export interface ReleasePaymentBody { [key: string]: unknown }

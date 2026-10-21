@@ -25,7 +25,7 @@ const WORKFLOWS = {
     },
     {
       title: "Wait for acceptance and funding",
-      detail: "If a client accepts your proposal, the job moves to awaiting funding. Work only begins after the client’s payment is confirmed in escrow. Add your verified bank or Mobile Money payout method in Payments before the client approves your work, so payment can be sent without asking the client for your account details.",
+      detail: "If a client accepts your proposal, the job moves to awaiting funding. Work only begins after the client’s payment is confirmed in escrow. Save your bank or Mobile Money payout method in Payments and verify it before the client releases payment, so payment can be sent without asking the client for your account details.",
       href: "/proposals",
       action: "Track proposals",
     },

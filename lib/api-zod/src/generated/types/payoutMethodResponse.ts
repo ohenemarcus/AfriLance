@@ -5,8 +5,8 @@
  * Afrlance freelance marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { PayoutMethod } from './payoutMethod';
 
-export type ResolvePaystackAccountParams = {
-accountNumber: string;
-bankCode: string;
-};
+export interface PayoutMethodResponse {
+  payoutMethod: PayoutMethod | null;
+}

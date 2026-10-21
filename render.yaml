@@ -23,6 +23,8 @@ services:
         sync: false
       - key: PAYSTACK_PUBLIC_KEY
         sync: false
+      - key: PAYOUT_DETAILS_ENCRYPTION_KEY
+        sync: false
       - key: LOCAL_UPLOAD_DIR
         value: /tmp/afrilance-uploads
       - key: CLOUDFLARE_R2_ACCOUNT_ID

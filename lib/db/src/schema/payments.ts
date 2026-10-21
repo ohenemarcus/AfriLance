@@ -28,7 +28,8 @@ export const paymentsTable = pgTable("payments", {
 export const payoutMethodsTable = pgTable("payout_methods", {
   id: serial("id").primaryKey(),
   freelancerId: integer("freelancer_id").notNull().unique(),
-  recipientCode: text("recipient_code").notNull(),
+  recipientCode: text("recipient_code"),
+  encryptedAccountNumber: text("encrypted_account_number"),
   bankCode: text("bank_code").notNull(),
   bankName: text("bank_name").notNull(),
   channel: text("channel").notNull(),

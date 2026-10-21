@@ -517,12 +517,52 @@ export interface InitializePaymentResponse {
   reference: string;
 }
 
-export interface ReleasePaymentBody {
+export interface ReleasePaymentBody { [key: string]: unknown }
+
+export type PayoutMethodBodyChannel = typeof PayoutMethodBodyChannel[keyof typeof PayoutMethodBodyChannel];
+
+
+export const PayoutMethodBodyChannel = {
+  bank: 'bank',
+  mobile_money: 'mobile_money',
+} as const;
+
+export interface PayoutMethodBody {
+  accountNumber: string;
+  bankCode: string;
+  bankName: string;
+  channel: PayoutMethodBodyChannel;
+}
+
+export type PayoutMethodChannel = typeof PayoutMethodChannel[keyof typeof PayoutMethodChannel];
+
+
+export const PayoutMethodChannel = {
+  bank: 'bank',
+  mobile_money: 'mobile_money',
+} as const;
+
+export interface PayoutMethod {
+  bankCode: string;
+  bankName: string;
+  channel: PayoutMethodChannel;
+  accountLast4: string;
+  verified: boolean;
+  updatedAt: string;
+}
+
+export interface PayoutMethodResponse {
+  payoutMethod: PayoutMethod | null;
 }
 
 export interface PaymentListResponse {
   payments: Payment[];
   total: number;
+}
+
+export interface ResolveAccountRequest {
+  accountNumber: string;
+  bankCode: string;
 }
 
 export interface ResolveAccountResponse {
@@ -724,11 +764,6 @@ export type ReportMessage201 = {
 
 export type ListNotificationsParams = {
 unreadOnly?: boolean;
-};
-
-export type ResolvePaystackAccountParams = {
-accountNumber: string;
-bankCode: string;
 };
 
 export type AdminListUsersParams = {

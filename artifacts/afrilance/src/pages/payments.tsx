@@ -49,69 +49,13 @@ function usePaystackScript() {
   return ready;
 }
 
-type VerifyState = "idle" | "loading" | "verified" | "error";
-
-function useAccountVerification(accountNumber: string, bankCode: string, getToken: () => Promise<string | null>) {
-  const [state, setState] = useState<VerifyState>("idle");
-  const [resolvedName, setResolvedName] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResolvedName("");
-    setErrorMsg("");
-
-    const minLen = bankCode === "MTN" || bankCode === "ATL" || bankCode === "VOD" ? 10 : 10;
-    if (!accountNumber || !bankCode || accountNumber.length < minLen) {
-      setState("idle");
-      return;
-    }
-
-    setState("loading");
-    if (timerRef.current) clearTimeout(timerRef.current);
-
-    timerRef.current = setTimeout(async () => {
-      try {
-        const token = await getToken();
-        const headers = new Headers({ "Content-Type": "application/json" });
-        if (token) headers.set("Authorization", `Bearer ${token}`);
-        const res = await fetch("/api/payments/resolve-account", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ accountNumber, bankCode }),
-        });
-        const json = await res.json();
-        if (cancelled) return;
-        if (res.ok && json.verified) {
-          setResolvedName("Account verified");
-          setState("verified");
-        } else {
-          setErrorMsg(json.error ?? "Account not found");
-          setState("error");
-        }
-      } catch {
-        if (cancelled) return;
-        setErrorMsg("Could not reach verification service");
-        setState("error");
-      }
-    }, 800);
-
-    return () => {
-      cancelled = true;
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [accountNumber, bankCode, getToken]);
-
-  return { state, resolvedName, errorMsg };
-}
-
 interface Bank { name: string; code: string; type: string }
 interface PayoutMethod {
   bankCode: string;
   bankName: string;
   channel: "bank" | "mobile_money";
   accountLast4: string;
+  verified: boolean;
   updatedAt: string;
 }
 
@@ -225,39 +169,6 @@ function BankPicker({
   );
 }
 
-function VerifyBadge({ state, name, error }: { state: VerifyState; name: string; error: string }) {
-  if (state === "idle") return null;
-  if (state === "loading") {
-    return (
-      <div className="flex items-center gap-1.5 mt-1.5">
-        <svg className="w-3.5 h-3.5 text-muted-foreground animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        <span className="text-xs text-muted-foreground">Verifying account…</span>
-      </div>
-    );
-  }
-  if (state === "verified") {
-    return (
-      <div className="flex items-center gap-1.5 mt-1.5">
-        <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-        <span className="text-xs text-green-700 dark:text-green-400 font-medium">{name}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-1.5 mt-1.5">
-      <svg className="w-3.5 h-3.5 text-destructive shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-      </svg>
-      <span className="text-xs text-destructive">{error || "Account not found — check the details"}</span>
-    </div>
-  );
-}
-
 export default function PaymentsPage() {
   const queryClient = useQueryClient();
   const { user } = useUser();
@@ -283,6 +194,7 @@ export default function PaymentsPage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [editingPayout, setEditingPayout] = useState(false);
   const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutVerifying, setPayoutVerifying] = useState(false);
   const [payoutError, setPayoutError] = useState("");
   const [payoutNotice, setPayoutNotice] = useState("");
   const [createError, setCreateError] = useState("");
@@ -327,12 +239,6 @@ export default function PaymentsPage() {
 
   const banks = banksData?.banks ?? [];
   const isMoMo = selectedBank?.type === "mobile_money";
-
-  const { state: acctState, resolvedName, errorMsg: acctError } = useAccountVerification(
-    payoutForm.accountNumber,
-    selectedBank?.code ?? "",
-    getToken,
-  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -473,8 +379,8 @@ export default function PaymentsPage() {
 
   const handleSavePayoutMethod = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!selectedBank || acctState !== "verified" || !resolvedName) {
-      setPayoutError("Choose a bank or Mobile Money provider and verify the account first.");
+    if (!selectedBank || !/^\d{10,32}$/.test(payoutForm.accountNumber)) {
+      setPayoutError("Choose a bank or Mobile Money provider and enter a valid account number.");
       return;
     }
 
@@ -495,11 +401,28 @@ export default function PaymentsPage() {
       setPayoutForm({ accountNumber: "" });
       setSelectedBank(null);
       setEditingPayout(false);
-      setPayoutNotice("Your payout method was saved securely.");
+      setPayoutNotice("Your payout method was saved securely. Verify it when you’re ready to receive payments.");
     } catch (cause) {
       setPayoutError(cause instanceof Error ? cause.message : "Could not save payout details");
     } finally {
       setPayoutSaving(false);
+    }
+  };
+
+  const handleVerifyPayoutMethod = async () => {
+    setPayoutVerifying(true);
+    setPayoutError("");
+    setPayoutNotice("");
+    try {
+      const body = await apiRequest("/api/payments/payout-method/verify", {
+        method: "POST",
+      });
+      setPayoutMethod(body.payoutMethod);
+      setPayoutNotice("Your payout method is verified and ready to receive payments.");
+    } catch (cause) {
+      setPayoutError(cause instanceof Error ? cause.message : "Could not verify payout details");
+    } finally {
+      setPayoutVerifying(false);
     }
   };
 
@@ -635,7 +558,23 @@ export default function PaymentsPage() {
                   {payoutMethod.channel === "mobile_money" ? "Mobile Money" : "Bank"} ···· {payoutMethod.accountLast4}
                 </p>
               </div>
-              <span className="text-xs font-medium text-green-700 dark:text-green-400">Verified payout method</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {payoutMethod.verified ? (
+                  <span className="text-xs font-medium text-green-700 dark:text-green-400">Verified payout method</span>
+                ) : (
+                  <>
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Verification required before payout</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleVerifyPayoutMethod()}
+                      disabled={payoutVerifying}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      {payoutVerifying ? "Verifying..." : "Verify now"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSavePayoutMethod} className="mt-4 max-w-xl space-y-4">
@@ -669,16 +608,15 @@ export default function PaymentsPage() {
                     placeholder={isMoMo ? "e.g. 0241234567" : "Enter your account number"}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
-                  <VerifyBadge state={acctState} name={resolvedName} error={acctError} />
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Paystack verifies the recipient. Only the provider name and last four digits are displayed here.
+                You can save now and verify later. Your account number is encrypted and only the provider name and last four digits are displayed here. Verification is required before a payout can be released.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="submit"
-                  disabled={payoutSaving || !selectedBank || acctState !== "verified"}
+                  disabled={payoutSaving || !selectedBank || !/^\d{10,32}$/.test(payoutForm.accountNumber)}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
                   {payoutSaving ? "Saving..." : payoutMethod ? "Save new payout method" : "Save payout method"}
@@ -710,7 +648,7 @@ export default function PaymentsPage() {
           <li>The client funds the accepted project through Paystack. Work begins after the payment is confirmed and marked In escrow.</li>
           <li>The freelancer submits completed work for review. The client can approve it or request revisions.</li>
           {profile?.role === "freelancer" ? (
-            <li>Save a verified bank or Mobile Money payout method here. After the client releases payment, Paystack transfers it there; the client never sees your account details.</li>
+            <li>Save your bank or Mobile Money payout method here, then verify it before the client releases payment. Paystack transfers released funds there; the client never sees your account details.</li>
           ) : (
             <li>After approving the work, release payment here. AfriLance sends it to the freelancer’s saved payout method—you do not need to enter their account details.</li>
           )}
@@ -796,7 +734,7 @@ export default function PaymentsPage() {
                       </button>
                       {!p.freelancerHasPayoutMethod && (
                         <p className="mt-2 max-w-40 text-right text-xs text-muted-foreground">
-                          The freelancer needs to set up a payout method before release.
+                          The freelancer needs to verify a payout method before release.
                         </p>
                       )}
                     </>

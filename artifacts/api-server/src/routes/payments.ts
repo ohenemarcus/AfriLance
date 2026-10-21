@@ -12,6 +12,10 @@ import {
   resolveBankAccount,
   verifyWebhookSignature,
 } from "../lib/paystack";
+import {
+  decryptPayoutAccountNumber,
+  encryptPayoutAccountNumber,
+} from "../lib/payout-encryption";
 
 const router = Router();
 
@@ -50,6 +54,7 @@ function serializePayoutMethod(method: typeof payoutMethodsTable.$inferSelect) {
     bankName: method.bankName,
     channel: method.channel,
     accountLast4: method.accountLast4,
+    verified: !!method.recipientCode,
     updatedAt: method.updatedAt.toISOString(),
   };
 }
@@ -70,7 +75,7 @@ router.get("/payments/payout-method", async (req, res): Promise<void> => {
   res.json({ payoutMethod: method ? serializePayoutMethod(method) : null });
 });
 
-// PUT /payments/payout-method — Save a payout recipient supplied by the freelancer
+// PUT /payments/payout-method — Save encrypted payout details for later verification
 router.put("/payments/payout-method", async (req, res): Promise<void> => {
   const userId = getAuth(req)?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -90,19 +95,12 @@ router.put("/payments/payout-method", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   try {
-    const accountName = await resolveBankAccount({
-      accountNumber: parsed.data.accountNumber,
-      bankCode: parsed.data.bankCode,
-    });
-    const recipientCode = await createTransferRecipient({
-      name: accountName,
-      accountNumber: parsed.data.accountNumber,
-      bankCode: parsed.data.bankCode,
-    });
+    const encryptedAccountNumber = encryptPayoutAccountNumber(parsed.data.accountNumber);
     const method = await db.transaction(async (tx) => {
       const [savedMethod] = await tx.insert(payoutMethodsTable).values({
         freelancerId: profile.id,
-        recipientCode,
+        recipientCode: null,
+        encryptedAccountNumber,
         bankCode: parsed.data.bankCode,
         bankName: parsed.data.bankName,
         channel: parsed.data.channel,
@@ -110,7 +108,8 @@ router.put("/payments/payout-method", async (req, res): Promise<void> => {
       }).onConflictDoUpdate({
         target: payoutMethodsTable.freelancerId,
         set: {
-          recipientCode,
+          recipientCode: null,
+          encryptedAccountNumber,
           bankCode: parsed.data.bankCode,
           bankName: parsed.data.bankName,
           channel: parsed.data.channel,
@@ -122,7 +121,7 @@ router.put("/payments/payout-method", async (req, res): Promise<void> => {
         userId: profile.id,
         type: "payout_method_updated",
         title: "Payout method updated",
-        body: "Your verified payout method was added or changed. If you did not make this change, contact support.",
+        body: "Your payout details were saved and are awaiting verification. Verify them before requesting a payment release.",
         relatedId: profile.id,
         relatedType: "profile",
       });
@@ -130,9 +129,62 @@ router.put("/payments/payout-method", async (req, res): Promise<void> => {
     });
     res.json({ payoutMethod: serializePayoutMethod(method) });
   } catch (err: any) {
-    req.log.error({ freelancerId: profile.id, statusCode: err?.response?.status }, "Payout method setup failed");
-    res.status(502).json({
-      error: err?.response?.data?.message ?? err?.message ?? "Could not save payout details",
+    req.log.error({ err, freelancerId: profile.id }, "Payout method save failed");
+    res.status(503).json({ error: "Payout details could not be saved. Please contact support." });
+  }
+});
+
+// POST /payments/payout-method/verify — Verify the saved details and create a Paystack recipient
+router.post("/payments/payout-method/verify", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const profile = await requireProfile(userId);
+  if (!profile || profile.role !== "freelancer") {
+    res.status(403).json({ error: "Only freelancers can verify payout details" });
+    return;
+  }
+
+  const [method] = await db.select().from(payoutMethodsTable)
+    .where(eq(payoutMethodsTable.freelancerId, profile.id));
+  if (!method) { res.status(404).json({ error: "Save a payout method before verifying it" }); return; }
+  if (method.recipientCode) {
+    res.json({ payoutMethod: serializePayoutMethod(method) });
+    return;
+  }
+  if (!method.encryptedAccountNumber) {
+    res.status(409).json({ error: "Please update your payout details before verifying them" });
+    return;
+  }
+
+  try {
+    const accountNumber = decryptPayoutAccountNumber(method.encryptedAccountNumber);
+    const accountName = await resolveBankAccount({
+      accountNumber,
+      bankCode: method.bankCode,
+    });
+    const recipientCode = await createTransferRecipient({
+      name: accountName,
+      accountNumber,
+      bankCode: method.bankCode,
+    });
+    const [verifiedMethod] = await db.update(payoutMethodsTable)
+      .set({ recipientCode, updatedAt: new Date() })
+      .where(and(
+        eq(payoutMethodsTable.freelancerId, profile.id),
+        eq(payoutMethodsTable.encryptedAccountNumber, method.encryptedAccountNumber),
+      ))
+      .returning();
+    if (!verifiedMethod) {
+      res.status(409).json({ error: "Payout details changed during verification. Please try again." });
+      return;
+    }
+
+    res.json({ payoutMethod: serializePayoutMethod(verifiedMethod) });
+  } catch (err: any) {
+    req.log.error({ err, freelancerId: profile.id, statusCode: err?.response?.status }, "Payout method verification failed");
+    res.status(err?.response ? 422 : 503).json({
+      error: err?.response?.data?.message ?? "Could not verify payout details right now. Please try again later.",
     });
   }
 });
@@ -157,11 +209,11 @@ router.get("/payments", async (req, res): Promise<void> => {
       const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, p.jobId));
       const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, p.freelancerId));
       const [client] = await db.select().from(profilesTable).where(eq(profilesTable.id, p.clientId));
-      const [payoutMethod] = await db.select({ id: payoutMethodsTable.id }).from(payoutMethodsTable)
+      const [payoutMethod] = await db.select({ recipientCode: payoutMethodsTable.recipientCode }).from(payoutMethodsTable)
         .where(eq(payoutMethodsTable.freelancerId, p.freelancerId));
       return {
         ...enrichPayment(p, job, freelancer, client),
-        freelancerHasPayoutMethod: !!payoutMethod,
+        freelancerHasPayoutMethod: !!payoutMethod?.recipientCode,
       };
     }),
   );
@@ -430,9 +482,9 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
   try {
     const [payoutMethod] = await db.select().from(payoutMethodsTable)
       .where(eq(payoutMethodsTable.freelancerId, existing.freelancerId));
-    if (!payoutMethod) {
+    if (!payoutMethod?.recipientCode) {
       res.status(400).json({
-        error: "The freelancer needs to set up a payout method before this payment can be released.",
+        error: "The freelancer needs to save and verify a payout method before this payment can be released.",
       });
       return;
     }

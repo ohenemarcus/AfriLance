@@ -850,7 +850,7 @@ paths:
     put:
       operationId: savePayoutMethod
       tags: [payments]
-      summary: Save or replace the current freelancer's payout method
+      summary: Securely save or replace the current freelancer's payout details for later verification
       requestBody:
         required: true
         content:
@@ -860,6 +860,19 @@ paths:
       responses:
         "200":
           description: Payout method saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutMethodResponse"
+
+  /payments/payout-method/verify:
+    post:
+      operationId: verifyPayoutMethod
+      tags: [payments]
+      summary: Verify the current freelancer's saved payout details with Paystack
+      responses:
+        "200":
+          description: Payout method verified
           content:
             application/json:
               schema:
@@ -2137,6 +2150,8 @@ components:
           enum: [bank, mobile_money]
         accountLast4:
           type: string
+        verified:
+          type: boolean
         updatedAt:
           type: string
       required:
@@ -2144,6 +2159,7 @@ components:
         - bankName
         - channel
         - accountLast4
+        - verified
         - updatedAt
 
     PayoutMethodResponse:

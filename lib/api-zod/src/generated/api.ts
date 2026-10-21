@@ -999,6 +999,7 @@ export const ListPaymentsResponse = zod.object({
   "jobTitle": zod.string().nullish(),
   "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
+  "freelancerHasPayoutMethod": zod.boolean().optional(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
   "releasedAt": zod.string().nullish()
@@ -1040,9 +1041,62 @@ export const VerifyPaymentResponse = zod.object({
   "jobTitle": zod.string().nullish(),
   "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
+  "freelancerHasPayoutMethod": zod.boolean().optional(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
   "releasedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get the current freelancer's masked payout method
+ */
+export const GetPayoutMethodResponse = zod.object({
+  "payoutMethod": zod.union([zod.object({
+  "bankCode": zod.string(),
+  "bankName": zod.string(),
+  "channel": zod.enum(['bank', 'mobile_money']),
+  "accountLast4": zod.string(),
+  "verified": zod.boolean(),
+  "updatedAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Securely save or replace the current freelancer's payout details for later verification
+ */
+export const SavePayoutMethodBody = zod.object({
+  "accountNumber": zod.string(),
+  "bankCode": zod.string(),
+  "bankName": zod.string(),
+  "channel": zod.enum(['bank', 'mobile_money'])
+})
+
+export const SavePayoutMethodResponse = zod.object({
+  "payoutMethod": zod.union([zod.object({
+  "bankCode": zod.string(),
+  "bankName": zod.string(),
+  "channel": zod.enum(['bank', 'mobile_money']),
+  "accountLast4": zod.string(),
+  "verified": zod.boolean(),
+  "updatedAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Verify the current freelancer's saved payout details with Paystack
+ */
+export const VerifyPayoutMethodResponse = zod.object({
+  "payoutMethod": zod.union([zod.object({
+  "bankCode": zod.string(),
+  "bankName": zod.string(),
+  "channel": zod.enum(['bank', 'mobile_money']),
+  "accountLast4": zod.string(),
+  "verified": zod.boolean(),
+  "updatedAt": zod.string()
+}),zod.null()])
 })
 
 
@@ -1051,9 +1105,6 @@ export const VerifyPaymentResponse = zod.object({
  */
 export const ReleasePaymentParams = zod.object({
   "id": zod.coerce.number()
-})
-
-export const ReleasePaymentBody = zod.object({
 })
 
 export const ReleasePaymentResponse = zod.object({
@@ -1095,11 +1146,11 @@ export const ListPaystackBanksResponse = zod.object({
 
 
 /**
- * @summary Resolve a bank account number to the account holder name
+ * @summary Verify the current freelancer's payout account without returning account-holder details
  */
-export const ResolvePaystackAccountQueryParams = zod.object({
-  "accountNumber": zod.coerce.string(),
-  "bankCode": zod.coerce.string()
+export const ResolvePaystackAccountBody = zod.object({
+  "accountNumber": zod.string(),
+  "bankCode": zod.string()
 })
 
 export const ResolvePaystackAccountResponse = zod.object({

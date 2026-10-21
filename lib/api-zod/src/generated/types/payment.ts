@@ -25,6 +25,7 @@ export interface Payment {
   jobStatus?: string | null;
   /** @nullable */
   freelancerName?: string | null;
+  freelancerHasPayoutMethod?: boolean;
   /** @nullable */
   clientName?: string | null;
   createdAt: string;

@@ -57,18 +57,19 @@ import type {
   NotificationListResponse,
   Payment,
   PaymentListResponse,
+  PayoutMethodBody,
+  PayoutMethodResponse,
   PaystackBankListResponse,
   Profile,
   Proposal,
   ProposalListResponse,
-  ReleasePaymentBody,
   ReportMessage201,
   ReportMessageBody,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RequestWorkRevisionBody,
+  ResolveAccountRequest,
   ResolveAccountResponse,
-  ResolvePaystackAccountParams,
   Review,
   ReviewListResponse,
   SaveJobBody,
@@ -2885,6 +2886,223 @@ export function useVerifyPayment<TData = Awaited<ReturnType<typeof verifyPayment
 
 
 
+export const getGetPayoutMethodUrl = () => {
+
+
+
+
+  return `/api/payments/payout-method`
+}
+
+/**
+ * @summary Get the current freelancer's masked payout method
+ */
+export const getPayoutMethod = async ( options?: RequestInit): Promise<PayoutMethodResponse> => {
+
+  return customFetch<PayoutMethodResponse>(getGetPayoutMethodUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayoutMethodQueryKey = () => {
+    return [
+    `/api/payments/payout-method`
+    ] as const;
+    }
+
+
+export const getGetPayoutMethodQueryOptions = <TData = Awaited<ReturnType<typeof getPayoutMethod>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutMethod>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayoutMethodQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayoutMethod>>> = ({ signal }) => getPayoutMethod({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayoutMethod>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayoutMethodQueryResult = NonNullable<Awaited<ReturnType<typeof getPayoutMethod>>>
+export type GetPayoutMethodQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the current freelancer's masked payout method
+ */
+
+export function useGetPayoutMethod<TData = Awaited<ReturnType<typeof getPayoutMethod>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutMethod>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayoutMethodQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSavePayoutMethodUrl = () => {
+
+
+
+
+  return `/api/payments/payout-method`
+}
+
+/**
+ * @summary Securely save or replace the current freelancer's payout details for later verification
+ */
+export const savePayoutMethod = async (payoutMethodBody: PayoutMethodBody, options?: RequestInit): Promise<PayoutMethodResponse> => {
+
+  return customFetch<PayoutMethodResponse>(getSavePayoutMethodUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(payoutMethodBody)
+  }
+);}
+
+
+
+
+export const getSavePayoutMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePayoutMethod>>, TError,{data: BodyType<PayoutMethodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof savePayoutMethod>>, TError,{data: BodyType<PayoutMethodBody>}, TContext> => {
+
+const mutationKey = ['savePayoutMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof savePayoutMethod>>, {data: BodyType<PayoutMethodBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  savePayoutMethod(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SavePayoutMethodMutationResult = NonNullable<Awaited<ReturnType<typeof savePayoutMethod>>>
+    export type SavePayoutMethodMutationBody = BodyType<PayoutMethodBody>
+    export type SavePayoutMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Securely save or replace the current freelancer's payout details for later verification
+ */
+export const useSavePayoutMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePayoutMethod>>, TError,{data: BodyType<PayoutMethodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof savePayoutMethod>>,
+        TError,
+        {data: BodyType<PayoutMethodBody>},
+        TContext
+      > => {
+      return useMutation(getSavePayoutMethodMutationOptions(options));
+    }
+
+export const getVerifyPayoutMethodUrl = () => {
+
+
+
+
+  return `/api/payments/payout-method/verify`
+}
+
+/**
+ * @summary Verify the current freelancer's saved payout details with Paystack
+ */
+export const verifyPayoutMethod = async ( options?: RequestInit): Promise<PayoutMethodResponse> => {
+
+  return customFetch<PayoutMethodResponse>(getVerifyPayoutMethodUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getVerifyPayoutMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPayoutMethod>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyPayoutMethod>>, TError,void, TContext> => {
+
+const mutationKey = ['verifyPayoutMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyPayoutMethod>>, void> = () => {
+
+
+          return  verifyPayoutMethod(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyPayoutMethodMutationResult = NonNullable<Awaited<ReturnType<typeof verifyPayoutMethod>>>
+
+    export type VerifyPayoutMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Verify the current freelancer's saved payout details with Paystack
+ */
+export const useVerifyPayoutMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPayoutMethod>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyPayoutMethod>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getVerifyPayoutMethodMutationOptions(options));
+    }
+
 export const getReleasePaymentUrl = (id: number,) => {
 
 
@@ -2896,15 +3114,14 @@ export const getReleasePaymentUrl = (id: number,) => {
 /**
  * @summary Release escrowed funds to freelancer via Paystack transfer
  */
-export const releasePayment = async (id: number,
-    releasePaymentBody?: ReleasePaymentBody, options?: RequestInit): Promise<Payment> => {
+export const releasePayment = async (id: number, options?: RequestInit): Promise<Payment> => {
 
   return customFetch<Payment>(getReleasePaymentUrl(id),
   {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(releasePaymentBody)
+    method: 'PATCH'
+
+
   }
 );}
 
@@ -2912,8 +3129,8 @@ export const releasePayment = async (id: number,
 
 
 export const getReleasePaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number;data?: BodyType<ReleasePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number;data?: BodyType<ReleasePaymentBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number}, TContext> => {
 
 const mutationKey = ['releasePayment'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2925,10 +3142,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releasePayment>>, {id: number;data?: BodyType<ReleasePaymentBody>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releasePayment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
 
-          return  releasePayment(id,data,requestOptions)
+          return  releasePayment(id,requestOptions)
         }
 
 
@@ -2939,18 +3156,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ReleasePaymentMutationResult = NonNullable<Awaited<ReturnType<typeof releasePayment>>>
-    export type ReleasePaymentMutationBody = BodyType<ReleasePaymentBody> | undefined
+
     export type ReleasePaymentMutationError = ErrorType<unknown>
 
     /**
  * @summary Release escrowed funds to freelancer via Paystack transfer
  */
 export const useReleasePayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number;data?: BodyType<ReleasePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePayment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof releasePayment>>,
         TError,
-        {id: number;data?: BodyType<ReleasePaymentBody>},
+        {id: number},
         TContext
       > => {
       return useMutation(getReleasePaymentMutationOptions(options));
@@ -3103,75 +3320,75 @@ export function useListPaystackBanks<TData = Awaited<ReturnType<typeof listPayst
 
 
 
-export const getResolvePaystackAccountUrl = () => `/api/payments/resolve-account`
+export const getResolvePaystackAccountUrl = () => {
+
+
+
+
+  return `/api/payments/resolve-account`
+}
 
 /**
  * @summary Verify the current freelancer's payout account without returning account-holder details
  */
-export const resolvePaystackAccount = async (params: ResolvePaystackAccountParams, options?: RequestInit): Promise<ResolveAccountResponse> => {
+export const resolvePaystackAccount = async (resolveAccountRequest: ResolveAccountRequest, options?: RequestInit): Promise<ResolveAccountResponse> => {
 
   return customFetch<ResolveAccountResponse>(getResolvePaystackAccountUrl(),
   {
     ...options,
     method: 'POST',
-    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveAccountRequest)
   }
 );}
 
 
 
 
+export const getResolvePaystackAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError,{data: BodyType<ResolveAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError,{data: BodyType<ResolveAccountRequest>}, TContext> => {
 
-export const getResolvePaystackAccountQueryKey = (params?: ResolvePaystackAccountParams,) => {
-    return [
-    `/api/payments/resolve-account`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getResolvePaystackAccountQueryOptions = <TData = Awaited<ReturnType<typeof resolvePaystackAccount>>, TError = ErrorType<void>>(params: ResolvePaystackAccountParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getResolvePaystackAccountQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof resolvePaystackAccount>>> = ({ signal }) => resolvePaystackAccount(params, { signal, ...requestOptions });
+const mutationKey = ['resolvePaystackAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
 
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolvePaystackAccount>>, {data: BodyType<ResolveAccountRequest>}> = (props) => {
+          const {data} = props ?? {};
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ResolvePaystackAccountQueryResult = NonNullable<Awaited<ReturnType<typeof resolvePaystackAccount>>>
-export type ResolvePaystackAccountQueryError = ErrorType<void>
+          return  resolvePaystackAccount(data,requestOptions)
+        }
 
 
-/**
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolvePaystackAccountMutationResult = NonNullable<Awaited<ReturnType<typeof resolvePaystackAccount>>>
+    export type ResolvePaystackAccountMutationBody = BodyType<ResolveAccountRequest>
+    export type ResolvePaystackAccountMutationError = ErrorType<void>
+
+    /**
  * @summary Verify the current freelancer's payout account without returning account-holder details
  */
-
-export function useResolvePaystackAccount<TData = Awaited<ReturnType<typeof resolvePaystackAccount>>, TError = ErrorType<void>>(
- params: ResolvePaystackAccountParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getResolvePaystackAccountQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
+export const useResolvePaystackAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolvePaystackAccount>>, TError,{data: BodyType<ResolveAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolvePaystackAccount>>,
+        TError,
+        {data: BodyType<ResolveAccountRequest>},
+        TContext
+      > => {
+      return useMutation(getResolvePaystackAccountMutationOptions(options));
+    }
 
 export const getListSavedJobsUrl = () => {
 
