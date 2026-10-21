@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureMessagingSchema } from "./lib/ensureMessagingSchema";
 import { ensureNotificationEmailSchema } from "./lib/ensureNotificationEmailSchema";
+import { ensurePayoutSchema } from "./lib/ensurePayoutSchema";
 import { startNotificationEmailWorker } from "./lib/notificationEmail";
 
 const rawPort = process.env["PORT"] ?? "8080";
@@ -14,6 +15,7 @@ if (Number.isNaN(port) || port <= 0) {
 async function startServer() {
   await ensureMessagingSchema();
   await ensureNotificationEmailSchema();
+  await ensurePayoutSchema();
 
   app.listen(port, (err) => {
     if (err) {

@@ -94,6 +94,14 @@ router.put("/payments/payout-method", async (req, res): Promise<void> => {
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  if (!/^[0-9a-fA-F]{64}$/.test(process.env.PAYOUT_DETAILS_ENCRYPTION_KEY ?? "")) {
+    req.log.error({ freelancerId: profile.id }, "Payout details encryption is not configured");
+    res.status(503).json({
+      error: "Payout setup is not configured on the server yet. Please contact support.",
+    });
+    return;
+  }
+
   try {
     const encryptedAccountNumber = encryptPayoutAccountNumber(parsed.data.accountNumber);
     const method = await db.transaction(async (tx) => {
