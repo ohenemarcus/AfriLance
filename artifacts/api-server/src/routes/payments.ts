@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, or, desc, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, paymentsTable, paymentStatusHistoryTable, profilesTable, jobsTable, proposalsTable, notificationsTable } from "@workspace/db";
+import { db, paymentsTable, payoutMethodsTable, paymentStatusHistoryTable, profilesTable, jobsTable, proposalsTable, notificationsTable } from "@workspace/db";
 import { z } from "zod";
 import {
   initializeTransaction,
@@ -9,6 +9,7 @@ import {
   initiateTransfer,
   createTransferRecipient,
   generateReference,
+  resolveBankAccount,
   verifyWebhookSignature,
 } from "../lib/paystack";
 
@@ -30,6 +31,7 @@ function enrichPayment(
 ) {
   return {
     ...p,
+    freelancerRecipientCode: undefined,
     jobTitle: job?.title ?? null,
     jobStatus: job?.status ?? null,
     freelancerName: freelancer?.name ?? null,
@@ -41,6 +43,99 @@ function enrichPayment(
 function formatGHS(amount: number) {
   return `₵${amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+function serializePayoutMethod(method: typeof payoutMethodsTable.$inferSelect) {
+  return {
+    bankCode: method.bankCode,
+    bankName: method.bankName,
+    channel: method.channel,
+    accountLast4: method.accountLast4,
+    updatedAt: method.updatedAt.toISOString(),
+  };
+}
+
+// GET /payments/payout-method — Return only the signed-in freelancer's masked payout method
+router.get("/payments/payout-method", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const profile = await requireProfile(userId);
+  if (!profile || profile.role !== "freelancer") {
+    res.status(403).json({ error: "Only freelancers can manage payout details" });
+    return;
+  }
+
+  const [method] = await db.select().from(payoutMethodsTable)
+    .where(eq(payoutMethodsTable.freelancerId, profile.id));
+  res.json({ payoutMethod: method ? serializePayoutMethod(method) : null });
+});
+
+// PUT /payments/payout-method — Save a payout recipient supplied by the freelancer
+router.put("/payments/payout-method", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const profile = await requireProfile(userId);
+  if (!profile || profile.role !== "freelancer") {
+    res.status(403).json({ error: "Only freelancers can manage payout details" });
+    return;
+  }
+
+  const parsed = z.object({
+    accountNumber: z.string().trim().regex(/^\d{10,32}$/),
+    bankCode: z.string().trim().min(1).max(32),
+    bankName: z.string().trim().min(1).max(120),
+    channel: z.enum(["bank", "mobile_money"]),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  try {
+    const accountName = await resolveBankAccount({
+      accountNumber: parsed.data.accountNumber,
+      bankCode: parsed.data.bankCode,
+    });
+    const recipientCode = await createTransferRecipient({
+      name: accountName,
+      accountNumber: parsed.data.accountNumber,
+      bankCode: parsed.data.bankCode,
+    });
+    const method = await db.transaction(async (tx) => {
+      const [savedMethod] = await tx.insert(payoutMethodsTable).values({
+        freelancerId: profile.id,
+        recipientCode,
+        bankCode: parsed.data.bankCode,
+        bankName: parsed.data.bankName,
+        channel: parsed.data.channel,
+        accountLast4: parsed.data.accountNumber.slice(-4),
+      }).onConflictDoUpdate({
+        target: payoutMethodsTable.freelancerId,
+        set: {
+          recipientCode,
+          bankCode: parsed.data.bankCode,
+          bankName: parsed.data.bankName,
+          channel: parsed.data.channel,
+          accountLast4: parsed.data.accountNumber.slice(-4),
+          updatedAt: new Date(),
+        },
+      }).returning();
+      await tx.insert(notificationsTable).values({
+        userId: profile.id,
+        type: "payout_method_updated",
+        title: "Payout method updated",
+        body: "Your verified payout method was added or changed. If you did not make this change, contact support.",
+        relatedId: profile.id,
+        relatedType: "profile",
+      });
+      return savedMethod;
+    });
+    res.json({ payoutMethod: serializePayoutMethod(method) });
+  } catch (err: any) {
+    req.log.error({ freelancerId: profile.id, statusCode: err?.response?.status }, "Payout method setup failed");
+    res.status(502).json({
+      error: err?.response?.data?.message ?? err?.message ?? "Could not save payout details",
+    });
+  }
+});
 
 // GET /payments
 router.get("/payments", async (req, res): Promise<void> => {
@@ -62,7 +157,12 @@ router.get("/payments", async (req, res): Promise<void> => {
       const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, p.jobId));
       const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, p.freelancerId));
       const [client] = await db.select().from(profilesTable).where(eq(profilesTable.id, p.clientId));
-      return enrichPayment(p, job, freelancer, client);
+      const [payoutMethod] = await db.select({ id: payoutMethodsTable.id }).from(payoutMethodsTable)
+        .where(eq(payoutMethodsTable.freelancerId, p.freelancerId));
+      return {
+        ...enrichPayment(p, job, freelancer, client),
+        freelancerHasPayoutMethod: !!payoutMethod,
+      };
     }),
   );
 
@@ -325,39 +425,18 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = z.object({
-    recipientCode: z.string().optional(),
-    accountNumber: z.string().optional(),
-    bankCode: z.string().optional(),
-    accountName: z.string().optional(),
-  }).safeParse(req.body ?? {});
-
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-
   let transferRef: string | null = null;
   try {
-    let recipientCode = existing.freelancerRecipientCode ?? parsed.data.recipientCode;
-
-    if (!recipientCode && parsed.data.accountNumber && parsed.data.bankCode && parsed.data.accountName) {
-      const [freelancer] = await db.select().from(profilesTable).where(eq(profilesTable.id, existing.freelancerId));
-      recipientCode = await createTransferRecipient({
-        name: parsed.data.accountName || freelancer?.name || "Freelancer",
-        accountNumber: parsed.data.accountNumber,
-        bankCode: parsed.data.bankCode,
-      });
-      await db
-        .update(paymentsTable)
-        .set({ freelancerRecipientCode: recipientCode })
-        .where(eq(paymentsTable.id, id));
-    }
-
-    if (!recipientCode) {
+    const [payoutMethod] = await db.select().from(payoutMethodsTable)
+      .where(eq(payoutMethodsTable.freelancerId, existing.freelancerId));
+    if (!payoutMethod) {
       res.status(400).json({
-        error: "Freelancer bank details required. Provide accountNumber, bankCode, and accountName.",
+        error: "The freelancer needs to set up a payout method before this payment can be released.",
       });
       return;
     }
 
+    const recipientCode = payoutMethod.recipientCode;
     transferRef = generateReference("trf");
     const [reserved] = await db.update(paymentsTable)
       .set({ status: "release_pending", paystackTransferReference: transferRef, updatedAt: new Date() })

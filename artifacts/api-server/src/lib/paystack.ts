@@ -52,6 +52,22 @@ export async function verifyTransaction(reference: string): Promise<{
   };
 }
 
+export async function resolveBankAccount(params: {
+  accountNumber: string;
+  bankCode: string;
+}): Promise<string> {
+  const { data } = await paystackApi.get("/bank/resolve", {
+    params: {
+      account_number: params.accountNumber,
+      bank_code: params.bankCode,
+    },
+  });
+  if (!data.status || !data.data?.account_name) {
+    throw new Error("Could not verify this payout account");
+  }
+  return data.data.account_name as string;
+}
+
 export async function refundTransaction(params: { reference: string; amount?: number }): Promise<void> {
   await paystackApi.post("/refund", {
     transaction: params.reference,

@@ -3103,32 +3103,18 @@ export function useListPaystackBanks<TData = Awaited<ReturnType<typeof listPayst
 
 
 
-export const getResolvePaystackAccountUrl = (params: ResolvePaystackAccountParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/payments/resolve-account?${stringifiedParams}` : `/api/payments/resolve-account`
-}
+export const getResolvePaystackAccountUrl = () => `/api/payments/resolve-account`
 
 /**
- * @summary Resolve a bank account number to the account holder name
+ * @summary Verify the current freelancer's payout account without returning account-holder details
  */
 export const resolvePaystackAccount = async (params: ResolvePaystackAccountParams, options?: RequestInit): Promise<ResolveAccountResponse> => {
 
-  return customFetch<ResolveAccountResponse>(getResolvePaystackAccountUrl(params),
+  return customFetch<ResolveAccountResponse>(getResolvePaystackAccountUrl(),
   {
     ...options,
-    method: 'GET'
-
-
+    method: 'POST',
+    body: JSON.stringify(params),
   }
 );}
 
@@ -3166,7 +3152,7 @@ export type ResolvePaystackAccountQueryError = ErrorType<void>
 
 
 /**
- * @summary Resolve a bank account number to the account holder name
+ * @summary Verify the current freelancer's payout account without returning account-holder details
  */
 
 export function useResolvePaystackAccount<TData = Awaited<ReturnType<typeof resolvePaystackAccount>>, TError = ErrorType<void>>(
@@ -4086,4 +4072,3 @@ export const useRequestUploadUrl = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRequestUploadUrlMutationOptions(options));
     }
-

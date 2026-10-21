@@ -1,5 +1,9 @@
 import { Router } from "express";
 import axios from "axios";
+import { eq } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+import { db, profilesTable } from "@workspace/db";
+import { z } from "zod";
 
 const router = Router();
 
@@ -45,16 +49,22 @@ router.get("/payments/banks", async (_req, res): Promise<void> => {
   }
 });
 
-router.get("/payments/resolve-account", async (req, res): Promise<void> => {
-  const { accountNumber, bankCode } = req.query as {
-    accountNumber?: string;
-    bankCode?: string;
-  };
-
-  if (!accountNumber || !bankCode) {
-    res.status(400).json({ error: "accountNumber and bankCode are required" });
+router.post("/payments/resolve-account", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [profile] = await db.select({ role: profilesTable.role }).from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+  if (profile?.role !== "freelancer") {
+    res.status(403).json({ error: "Only freelancers can verify payout accounts" });
     return;
   }
+
+  const parsed = z.object({
+    accountNumber: z.string().trim().regex(/^\d{10,32}$/),
+    bankCode: z.string().trim().min(1).max(32),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const { accountNumber, bankCode } = parsed.data;
 
   try {
     const { data } = await axios.get(
@@ -68,7 +78,7 @@ router.get("/payments/resolve-account", async (req, res): Promise<void> => {
     );
 
     if (data.status && data.data?.account_name) {
-      res.json({ accountName: data.data.account_name as string });
+      res.json({ verified: true });
     } else {
       res.status(404).json({ error: "Account not found" });
     }

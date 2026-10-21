@@ -495,6 +495,7 @@ export interface Payment {
   jobStatus?: string | null;
   /** @nullable */
   freelancerName?: string | null;
+  freelancerHasPayoutMethod?: boolean;
   /** @nullable */
   clientName?: string | null;
   createdAt: string;
@@ -517,10 +518,6 @@ export interface InitializePaymentResponse {
 }
 
 export interface ReleasePaymentBody {
-  recipientCode?: string;
-  accountNumber?: string;
-  bankCode?: string;
-  accountName?: string;
 }
 
 export interface PaymentListResponse {
@@ -529,7 +526,7 @@ export interface PaymentListResponse {
 }
 
 export interface ResolveAccountResponse {
-  accountName: string;
+  verified: boolean;
 }
 
 export interface PaystackBank {

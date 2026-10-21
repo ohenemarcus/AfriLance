@@ -835,6 +835,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Payment"
 
+  /payments/payout-method:
+    get:
+      operationId: getPayoutMethod
+      tags: [payments]
+      summary: Get the current freelancer's masked payout method
+      responses:
+        "200":
+          description: The freelancer's payout method, if configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutMethodResponse"
+    put:
+      operationId: savePayoutMethod
+      tags: [payments]
+      summary: Save or replace the current freelancer's payout method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayoutMethodBody"
+      responses:
+        "200":
+          description: Payout method saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutMethodResponse"
+
   /payments/{id}/release:
     patch:
       operationId: releasePayment
@@ -846,12 +876,6 @@ paths:
           required: true
           schema:
             type: integer
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReleasePaymentBody"
       responses:
         "200":
           description: Payment released
@@ -883,24 +907,19 @@ paths:
                 $ref: "#/components/schemas/PaystackBankListResponse"
 
   /payments/resolve-account:
-    get:
+    post:
       operationId: resolvePaystackAccount
       tags: [payments]
-      summary: Resolve a bank account number to the account holder name
-      parameters:
-        - in: query
-          name: accountNumber
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: bankCode
-          required: true
-          schema:
-            type: string
+      summary: Verify the current freelancer's payout account without returning account-holder details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveAccountRequest"
       responses:
         "200":
-          description: Resolved account name
+          description: Payout account verified
           content:
             application/json:
               schema:
@@ -2034,6 +2053,8 @@ components:
           type: ["string", "null"]
         freelancerName:
           type: ["string", "null"]
+        freelancerHasPayoutMethod:
+          type: boolean
         clientName:
           type: ["string", "null"]
         createdAt:
@@ -2085,15 +2106,55 @@ components:
 
     ReleasePaymentBody:
       type: object
+
+    PayoutMethodBody:
+      type: object
       properties:
-        recipientCode:
-          type: string
         accountNumber:
           type: string
         bankCode:
           type: string
-        accountName:
+        bankName:
           type: string
+        channel:
+          type: string
+          enum: [bank, mobile_money]
+      required:
+        - accountNumber
+        - bankCode
+        - bankName
+        - channel
+
+    PayoutMethod:
+      type: object
+      properties:
+        bankCode:
+          type: string
+        bankName:
+          type: string
+        channel:
+          type: string
+          enum: [bank, mobile_money]
+        accountLast4:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - bankCode
+        - bankName
+        - channel
+        - accountLast4
+        - updatedAt
+
+    PayoutMethodResponse:
+      type: object
+      properties:
+        payoutMethod:
+          anyOf:
+            - $ref: "#/components/schemas/PayoutMethod"
+            - type: "null"
+      required:
+        - payoutMethod
 
     PaymentListResponse:
       type: object
@@ -2108,13 +2169,24 @@ components:
         - payments
         - total
 
+    ResolveAccountRequest:
+      type: object
+      properties:
+        accountNumber:
+          type: string
+        bankCode:
+          type: string
+      required:
+        - accountNumber
+        - bankCode
+
     ResolveAccountResponse:
       type: object
       properties:
-        accountName:
-          type: string
+        verified:
+          type: boolean
       required:
-        - accountName
+        - verified
 
     PaystackBank:
       type: object

@@ -25,6 +25,18 @@ export const paymentsTable = pgTable("payments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const payoutMethodsTable = pgTable("payout_methods", {
+  id: serial("id").primaryKey(),
+  freelancerId: integer("freelancer_id").notNull().unique(),
+  recipientCode: text("recipient_code").notNull(),
+  bankCode: text("bank_code").notNull(),
+  bankName: text("bank_name").notNull(),
+  channel: text("channel").notNull(),
+  accountLast4: text("account_last4").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const paymentStatusHistoryTable = pgTable("payment_status_history", {
   id: serial("id").primaryKey(),
   paymentId: integer("payment_id").notNull(),

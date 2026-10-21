@@ -7,5 +7,5 @@
  */
 
 export interface ResolveAccountResponse {
-  accountName: string;
+  verified: boolean;
 }

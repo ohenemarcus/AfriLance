@@ -1054,10 +1054,6 @@ export const ReleasePaymentParams = zod.object({
 })
 
 export const ReleasePaymentBody = zod.object({
-  "recipientCode": zod.string().optional(),
-  "accountNumber": zod.string().optional(),
-  "bankCode": zod.string().optional(),
-  "accountName": zod.string().optional()
 })
 
 export const ReleasePaymentResponse = zod.object({
@@ -1073,6 +1069,7 @@ export const ReleasePaymentResponse = zod.object({
   "jobTitle": zod.string().nullish(),
   "jobStatus": zod.string().nullish(),
   "freelancerName": zod.string().nullish(),
+  "freelancerHasPayoutMethod": zod.boolean().optional(),
   "clientName": zod.string().nullish(),
   "createdAt": zod.string(),
   "releasedAt": zod.string().nullish()
@@ -1106,7 +1103,7 @@ export const ResolvePaystackAccountQueryParams = zod.object({
 })
 
 export const ResolvePaystackAccountResponse = zod.object({
-  "accountName": zod.string()
+  "verified": zod.boolean()
 })
 
 
@@ -1410,5 +1407,3 @@ export const RequestUploadUrlResponse = zod.object({
   "contentType": zod.string()
 })
 })
-
-

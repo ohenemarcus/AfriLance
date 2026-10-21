@@ -7,8 +7,4 @@
  */
 
 export interface ReleasePaymentBody {
-  recipientCode?: string;
-  accountNumber?: string;
-  bankCode?: string;
-  accountName?: string;
 }

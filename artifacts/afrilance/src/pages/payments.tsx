@@ -51,7 +51,7 @@ function usePaystackScript() {
 
 type VerifyState = "idle" | "loading" | "verified" | "error";
 
-function useAccountVerification(accountNumber: string, bankCode: string) {
+function useAccountVerification(accountNumber: string, bankCode: string, getToken: () => Promise<string | null>) {
   const [state, setState] = useState<VerifyState>("idle");
   const [resolvedName, setResolvedName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -72,12 +72,17 @@ function useAccountVerification(accountNumber: string, bankCode: string) {
 
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/payments/resolve-account?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`,
-        );
+        const token = await getToken();
+        const headers = new Headers({ "Content-Type": "application/json" });
+        if (token) headers.set("Authorization", `Bearer ${token}`);
+        const res = await fetch("/api/payments/resolve-account", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ accountNumber, bankCode }),
+        });
         const json = await res.json();
-        if (res.ok && json.accountName) {
-          setResolvedName(json.accountName as string);
+        if (res.ok && json.verified) {
+          setResolvedName("Account verified");
           setState("verified");
         } else {
           setErrorMsg(json.error ?? "Account not found");
@@ -92,12 +97,19 @@ function useAccountVerification(accountNumber: string, bankCode: string) {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [accountNumber, bankCode]);
+  }, [accountNumber, bankCode, getToken]);
 
   return { state, resolvedName, errorMsg };
 }
 
 interface Bank { name: string; code: string; type: string }
+interface PayoutMethod {
+  bankCode: string;
+  bankName: string;
+  channel: "bank" | "mobile_money";
+  accountLast4: string;
+  updatedAt: string;
+}
 
 function BankPicker({
   banks,
@@ -262,7 +274,13 @@ export default function PaymentsPage() {
   const [showRelease, setShowRelease] = useState<number | null>(null);
   const [form, setForm] = useState({ jobId: "", freelancerId: "", amount: "" });
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
-  const [releaseForm, setReleaseForm] = useState({ accountNumber: "", accountName: "" });
+  const [payoutForm, setPayoutForm] = useState({ accountNumber: "" });
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethod | null>(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [editingPayout, setEditingPayout] = useState(false);
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutNotice, setPayoutNotice] = useState("");
   const [createError, setCreateError] = useState("");
   const [releaseError, setReleaseError] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -307,8 +325,9 @@ export default function PaymentsPage() {
   const isMoMo = selectedBank?.type === "mobile_money";
 
   const { state: acctState, resolvedName, errorMsg: acctError } = useAccountVerification(
-    releaseForm.accountNumber,
+    payoutForm.accountNumber,
     selectedBank?.code ?? "",
+    getToken,
   );
 
   useEffect(() => {
@@ -324,12 +343,6 @@ export default function PaymentsPage() {
     setAcceptedProposalId(proposalId);
     setShowCreate(true);
   }, []);
-
-  useEffect(() => {
-    if (acctState === "verified" && resolvedName) {
-      setReleaseForm((f) => ({ ...f, accountName: resolvedName }));
-    }
-  }, [acctState, resolvedName]);
 
   const openPaystackCheckout = useCallback(
     (authorizationUrl: string, reference: string, _paymentId: number) => {
@@ -406,16 +419,14 @@ export default function PaymentsPage() {
 
   const handleRelease = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showRelease || !selectedBank) return;
+    if (!showRelease) return;
     setReleaseError("");
     release(
-      { id: showRelease, data: { accountNumber: releaseForm.accountNumber, bankCode: selectedBank.code, accountName: releaseForm.accountName } },
+      { id: showRelease },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey() });
           setShowRelease(null);
-          setSelectedBank(null);
-          setReleaseForm({ accountNumber: "", accountName: "" });
         },
         onError: (err: any) => {
           setReleaseError(err?.response?.data?.error ?? "Transfer failed");
@@ -428,10 +439,7 @@ export default function PaymentsPage() {
   const totalPending = data?.payments.filter((p) => p.status === "pending" || p.status === "release_pending").reduce((s, p) => s + p.amount, 0) ?? 0;
   const totalEscrowed = data?.payments.filter((p) => p.status === "escrowed").reduce((s, p) => s + p.amount, 0) ?? 0;
   const totalReleased = data?.payments.filter((p) => p.status === "released").reduce((s, p) => s + p.amount, 0) ?? 0;
-
-  const canRelease = !!selectedBank && !!releaseForm.accountName && (acctState === "verified" || acctState === "idle");
-
-  const apiRequest = async (path: string, init: RequestInit = {}) => {
+  const apiRequest = useCallback(async (path: string, init: RequestInit = {}) => {
     const token = await getToken();
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
@@ -440,6 +448,55 @@ export default function PaymentsPage() {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error ?? "Request failed");
     return body;
+  }, [getToken]);
+
+  useEffect(() => {
+    if (profile?.role !== "freelancer") return;
+    let cancelled = false;
+    setPayoutLoading(true);
+    void apiRequest("/api/payments/payout-method")
+      .then((body) => {
+        if (!cancelled) setPayoutMethod(body.payoutMethod ?? null);
+      })
+      .catch((cause) => {
+        if (!cancelled) setPayoutError(cause instanceof Error ? cause.message : "Could not load payout details");
+      })
+      .finally(() => {
+        if (!cancelled) setPayoutLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [apiRequest, profile?.role]);
+
+  const handleSavePayoutMethod = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedBank || acctState !== "verified" || !resolvedName) {
+      setPayoutError("Choose a bank or Mobile Money provider and verify the account first.");
+      return;
+    }
+
+    setPayoutSaving(true);
+    setPayoutError("");
+    setPayoutNotice("");
+    try {
+      const body = await apiRequest("/api/payments/payout-method", {
+        method: "PUT",
+        body: JSON.stringify({
+          accountNumber: payoutForm.accountNumber,
+          bankCode: selectedBank.code,
+          bankName: selectedBank.name,
+          channel: selectedBank.type === "mobile_money" ? "mobile_money" : "bank",
+        }),
+      });
+      setPayoutMethod(body.payoutMethod);
+      setPayoutForm({ accountNumber: "" });
+      setSelectedBank(null);
+      setEditingPayout(false);
+      setPayoutNotice("Your payout method was saved securely.");
+    } catch (cause) {
+      setPayoutError(cause instanceof Error ? cause.message : "Could not save payout details");
+    } finally {
+      setPayoutSaving(false);
+    }
   };
 
   const handleOpenDispute = async (event: React.FormEvent) => {
@@ -537,13 +594,118 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      {profile?.role === "freelancer" && (
+        <section className="mb-5 rounded-xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Your payout method</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Add your own bank or Mobile Money details. They are kept private and never shown to clients.
+              </p>
+            </div>
+            {payoutMethod && !editingPayout && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPayout(true);
+                  setPayoutError("");
+                  setPayoutNotice("");
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+              >
+                Change payout method
+              </button>
+            )}
+          </div>
+
+          {payoutError && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{payoutError}</p>}
+          {payoutNotice && <p role="status" className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950/30 dark:text-green-300">{payoutNotice}</p>}
+
+          {payoutLoading ? (
+            <div className="mt-4 h-16 animate-pulse rounded-lg bg-muted" />
+          ) : payoutMethod && !editingPayout ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 p-4">
+              <div>
+                <p className="font-medium text-foreground">{payoutMethod.bankName}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {payoutMethod.channel === "mobile_money" ? "Mobile Money" : "Bank"} ···· {payoutMethod.accountLast4}
+                </p>
+              </div>
+              <span className="text-xs font-medium text-green-700 dark:text-green-400">Verified payout method</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSavePayoutMethod} className="mt-4 max-w-xl space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Bank or Mobile Money provider *</label>
+                {banksLoading ? (
+                  <div className="h-10 animate-pulse rounded-lg bg-muted" />
+                ) : (
+                  <BankPicker
+                    banks={banks}
+                    selected={selectedBank}
+                    onSelect={(bank) => {
+                      setSelectedBank(bank);
+                      setPayoutForm({ accountNumber: "" });
+                    }}
+                  />
+                )}
+              </div>
+              {selectedBank && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">
+                    {isMoMo ? "Mobile Money phone number *" : "Bank account number *"}
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    required
+                    value={payoutForm.accountNumber}
+                    onChange={(event) => setPayoutForm({ accountNumber: event.target.value.replace(/\D/g, "") })}
+                    placeholder={isMoMo ? "e.g. 0241234567" : "Enter your account number"}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <VerifyBadge state={acctState} name={resolvedName} error={acctError} />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Paystack verifies the recipient. Only the provider name and last four digits are displayed here.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={payoutSaving || !selectedBank || acctState !== "verified"}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {payoutSaving ? "Saving..." : payoutMethod ? "Save new payout method" : "Save payout method"}
+                </button>
+                {payoutMethod && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPayout(false);
+                      setSelectedBank(null);
+                      setPayoutForm({ accountNumber: "" });
+                      setPayoutError("");
+                    }}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </section>
+      )}
+
       {/* Escrow explainer */}
       <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
         <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">How Escrow Works</h3>
         <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-0.5 list-decimal list-inside">
           <li>Client creates a payment — funds are charged via Paystack and held in escrow</li>
           <li>Freelancer completes the work</li>
-          <li>Client releases — funds are transferred to the freelancer's bank account or MoMo wallet</li>
+          <li>Client releases — funds are sent to the freelancer's saved bank account or MoMo wallet; payout details stay private</li>
         </ol>
       </div>
 
@@ -612,17 +774,23 @@ export default function PaymentsPage() {
                   <div className="text-lg font-bold text-primary">{formatCurrency(p.amount)}</div>
                   <StatusBadge status={p.status} />
                   {p.status === "escrowed" && p.jobStatus === "awaiting_release" && profile?.role === "client" && profile.id === p.clientId && (
-                    <button
-                      onClick={() => {
-                        setShowRelease(p.id);
-                        setSelectedBank(null);
-                        setReleaseForm({ accountNumber: "", accountName: "" });
-                        setReleaseError("");
-                      }}
-                      className="mt-2 block text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-                    >
-                      Release approved payment
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowRelease(p.id);
+                          setReleaseError("");
+                        }}
+                        disabled={!p.freelancerHasPayoutMethod}
+                        className="mt-2 block text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Release approved payment
+                      </button>
+                      {!p.freelancerHasPayoutMethod && (
+                        <p className="mt-2 max-w-40 text-right text-xs text-muted-foreground">
+                          The freelancer needs to set up a payout method before release.
+                        </p>
+                      )}
+                    </>
                   )}
                   {p.status === "escrowed" && p.jobStatus !== "awaiting_release" && profile?.role === "client" && profile.id === p.clientId && (
                     <p className="mt-2 max-w-40 text-right text-xs text-muted-foreground">Funds stay held until the freelancer submits work and you approve it.</p>
@@ -748,7 +916,7 @@ export default function PaymentsPage() {
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Enter the freelancer's payout details. The account name will be verified automatically.
+              The funds will be sent to the freelancer’s verified payout method. Their bank and account details are private and are not shown to you.
             </p>
 
             <form onSubmit={handleRelease} className="space-y-4">
@@ -756,40 +924,14 @@ export default function PaymentsPage() {
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{releaseError}</div>
               )}
 
-              {/* Bank / MoMo picker */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Bank or Mobile Money Provider *
-                </label>
-                {banksLoading ? (
-                  <div className="h-10 bg-muted rounded-lg animate-pulse" />
-                ) : (
-                  <BankPicker banks={banks} selected={selectedBank}
-                    onSelect={(b) => {
-                      setSelectedBank(b);
-                      setReleaseForm((f) => ({ ...f, accountNumber: "", accountName: "" }));
-                    }}
-                  />
-                )}
-                {selectedBank && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Code: <span className="font-mono">{selectedBank.code}</span>
-                    {isMoMo && " · Enter the registered phone number below"}
-                  </p>
-                )}
-              </div>
-
               {/* Account number / phone */}
-              <div>
+              <div hidden>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   {isMoMo ? "Phone Number *" : "Account Number *"}
                 </label>
                 <div className="relative">
                   <input
-                    type="text" required value={releaseForm.accountNumber}
-                    onChange={(e) => {
-                      setReleaseForm((f) => ({ ...f, accountNumber: e.target.value, accountName: "" }));
-                    }}
+                    type="text" disabled value=""
                     placeholder={isMoMo ? "e.g. 0241234567" : "e.g. 1234567890"}
                     className={`w-full px-3 py-2.5 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8 ${
                       acctState === "verified"
@@ -820,7 +962,7 @@ export default function PaymentsPage() {
               </div>
 
               {/* Account name — auto-filled, editable as fallback */}
-              <div>
+              <div hidden>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   {isMoMo ? "Registered Name *" : "Account Name *"}
                   {acctState === "verified" && (
@@ -828,8 +970,7 @@ export default function PaymentsPage() {
                   )}
                 </label>
                 <input
-                  type="text" required value={releaseForm.accountName}
-                  onChange={(e) => setReleaseForm((f) => ({ ...f, accountName: e.target.value }))}
+                  type="text" disabled value=""
                   placeholder={isMoMo ? "Full name on the MoMo account" : "Full name on the bank account"}
                   className={`w-full px-3 py-2.5 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                     acctState === "verified" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-border"
@@ -838,8 +979,14 @@ export default function PaymentsPage() {
               </div>
 
               {/* Warning */}
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-700 dark:text-amber-300">
-                This initiates a real bank/MoMo transfer via Paystack. Double-check all details — this action is irreversible.
+              <div className="rounded-lg bg-muted/50 p-4">
+                <p className="text-sm font-medium text-foreground">Payment amount</p>
+                <p className="mt-1 text-lg font-bold text-primary">
+                  {formatCurrency(data?.payments.find((payment) => payment.id === showRelease)?.amount ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                Releasing the payment starts a transfer to the freelancer’s saved bank or Mobile Money account.
               </div>
 
               <div className="flex gap-3 pt-1">
@@ -848,10 +995,10 @@ export default function PaymentsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={releasing || !canRelease}
+                  disabled={releasing}
                   className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
-                  {releasing ? "Transferring..." : `Release to ${isMoMo ? "MoMo" : "Bank"}`}
+                  {releasing ? "Releasing..." : "Confirm release"}
                 </button>
               </div>
             </form>
