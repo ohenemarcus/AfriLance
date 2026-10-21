@@ -58,6 +58,7 @@ function useAccountVerification(accountNumber: string, bankCode: string, getToke
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setResolvedName("");
     setErrorMsg("");
 
@@ -81,6 +82,7 @@ function useAccountVerification(accountNumber: string, bankCode: string, getToke
           body: JSON.stringify({ accountNumber, bankCode }),
         });
         const json = await res.json();
+        if (cancelled) return;
         if (res.ok && json.verified) {
           setResolvedName("Account verified");
           setState("verified");
@@ -89,12 +91,14 @@ function useAccountVerification(accountNumber: string, bankCode: string, getToke
           setState("error");
         }
       } catch {
+        if (cancelled) return;
         setErrorMsg("Could not reach verification service");
         setState("error");
       }
     }, 800);
 
     return () => {
+      cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [accountNumber, bankCode, getToken]);
@@ -928,60 +932,6 @@ export default function PaymentsPage() {
               {releaseError && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{releaseError}</div>
               )}
-
-              {/* Account number / phone */}
-              <div hidden>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {isMoMo ? "Phone Number *" : "Account Number *"}
-                </label>
-                <div className="relative">
-                  <input
-                    type="text" disabled value=""
-                    placeholder={isMoMo ? "e.g. 0241234567" : "e.g. 1234567890"}
-                    className={`w-full px-3 py-2.5 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8 ${
-                      acctState === "verified"
-                        ? "border-green-500"
-                        : acctState === "error"
-                          ? "border-destructive"
-                          : "border-border"
-                    }`}
-                  />
-                  {acctState === "loading" && (
-                    <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  )}
-                  {acctState === "verified" && (
-                    <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  {acctState === "error" && (
-                    <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  )}
-                </div>
-                <VerifyBadge state={acctState} name={resolvedName} error={acctError} />
-              </div>
-
-              {/* Account name — auto-filled, editable as fallback */}
-              <div hidden>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {isMoMo ? "Registered Name *" : "Account Name *"}
-                  {acctState === "verified" && (
-                    <span className="ml-2 text-xs font-normal text-green-600">auto-filled</span>
-                  )}
-                </label>
-                <input
-                  type="text" disabled value=""
-                  placeholder={isMoMo ? "Full name on the MoMo account" : "Full name on the bank account"}
-                  className={`w-full px-3 py-2.5 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                    acctState === "verified" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-border"
-                  }`}
-                />
-              </div>
 
               {/* Warning */}
               <div className="rounded-lg bg-muted/50 p-4">

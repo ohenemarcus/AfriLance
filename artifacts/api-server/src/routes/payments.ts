@@ -426,6 +426,7 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
   }
 
   let transferRef: string | null = null;
+  let transferAttempted = false;
   try {
     const [payoutMethod] = await db.select().from(payoutMethodsTable)
       .where(eq(payoutMethodsTable.freelancerId, existing.freelancerId));
@@ -445,13 +446,13 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
     if (!reserved) { res.status(409).json({ error: "Payment status changed. Refresh and try again." }); return; }
     await db.insert(paymentStatusHistoryTable).values({ paymentId: reserved.id, status: "release_pending", note: "Client approved work; Paystack transfer initiated", changedBy: profile.id });
 
+    transferAttempted = true;
     const transferCode = await initiateTransfer({
       recipientCode,
       amount: existing.amount,
       reason: `Afrlance escrow release for payment #${existing.id}`,
       reference: transferRef,
     });
-
     const [storedTransfer] = await db
       .update(paymentsTable)
       .set({ paystackTransferCode: transferCode, updatedAt: new Date() })
@@ -482,7 +483,7 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
 
     res.json(enrichPayment(currentPayment, updatedJob, freelancer, client));
   } catch (err: any) {
-    if (transferRef) {
+    if (transferRef && !transferAttempted) {
       const [restored] = await db.update(paymentsTable)
         .set({ status: "escrowed", paystackTransferReference: null, updatedAt: new Date() })
         .where(and(
@@ -496,7 +497,9 @@ router.patch("/payments/:id/release", async (req, res): Promise<void> => {
       }
     }
     req.log.error({ err }, "Paystack transfer failed");
-    const msg = err?.response?.data?.message ?? "Transfer failed. Please try again.";
+    const msg = transferAttempted
+      ? "The transfer request outcome is uncertain. The payment remains pending to prevent a duplicate payout; contact support before retrying."
+      : err?.response?.data?.message ?? "Transfer failed. Please try again.";
     res.status(502).json({ error: msg });
   }
 });
