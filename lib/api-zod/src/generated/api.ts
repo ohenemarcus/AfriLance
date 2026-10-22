@@ -707,6 +707,9 @@ export const ListConversationsResponse = zod.object({
   "otherUserId": zod.number(),
   "otherUserName": zod.string(),
   "otherUserAvatarUrl": zod.string().nullish(),
+  "isMuted": zod.boolean(),
+  "isBlockedByMe": zod.boolean(),
+  "hasBlockedMe": zod.boolean(),
   "lastMessage": zod.string().nullish(),
   "lastMessageAt": zod.string().nullish(),
   "unreadCount": zod.number(),
@@ -776,6 +779,67 @@ export const UpdateConversationTypingBody = zod.object({
 })
 
 export const UpdateConversationTypingResponse = zod.void()
+
+
+/**
+ * @summary Set the current user's mute preference for a conversation
+ */
+export const UpdateConversationMuteParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const UpdateConversationMuteBody = zod.object({
+  "muted": zod.boolean()
+})
+
+export const UpdateConversationMuteResponse = zod.object({
+  "muted": zod.boolean()
+})
+
+
+/**
+ * @summary Block the other participant in a conversation
+ */
+export const BlockConversationUserParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const BlockConversationUserResponse = zod.object({
+  "blocked": zod.boolean()
+})
+
+
+/**
+ * @summary Unblock the other participant in a conversation
+ */
+export const UnblockConversationUserParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const UnblockConversationUserResponse = zod.object({
+  "blocked": zod.boolean()
+})
+
+
+/**
+ * @summary Report the other participant in a conversation
+ */
+export const ReportConversationUserParams = zod.object({
+  "conversationId": zod.coerce.number()
+})
+
+export const reportConversationUserBodyReasonMax = 120;
+
+export const reportConversationUserBodyDetailsMax = 1000;
+
+
+
+export const ReportConversationUserBody = zod.object({
+  "reason": zod.string().max(reportConversationUserBodyReasonMax),
+  "details": zod.string().max(reportConversationUserBodyDetailsMax).optional()
+})
+
+export const ReportConversationUserResponse = zod.void()
 
 
 /**
@@ -1441,6 +1505,48 @@ export const GetAdminAuditLogsResponse = zod.object({
 
 
 /**
+ * @summary List user safety reports
+ */
+export const AdminListUserReportsResponse = zod.object({
+  "reports": zod.array(zod.object({
+  "id": zod.number(),
+  "reason": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'in_review', 'resolved']),
+  "createdAt": zod.string(),
+  "reporterId": zod.number(),
+  "reporterName": zod.string().nullish(),
+  "reportedId": zod.number(),
+  "reportedName": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Update a user report moderation status
+ */
+export const AdminUpdateUserReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminUpdateUserReportBody = zod.object({
+  "status": zod.enum(['open', 'in_review', 'resolved'])
+})
+
+export const AdminUpdateUserReportResponse = zod.object({
+  "id": zod.number(),
+  "reason": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'in_review', 'resolved']),
+  "createdAt": zod.string(),
+  "reporterId": zod.number(),
+  "reporterName": zod.string().nullish(),
+  "reportedId": zod.number(),
+  "reportedName": zod.string().nullish()
+})
+
+
+/**
  * @summary Request a presigned URL for file upload
  */
 export const RequestUploadUrlBody = zod.object({
@@ -1458,3 +1564,5 @@ export const RequestUploadUrlResponse = zod.object({
   "contentType": zod.string()
 })
 })
+
+

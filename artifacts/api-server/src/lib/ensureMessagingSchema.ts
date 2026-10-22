@@ -34,6 +34,34 @@ export async function ensureMessagingSchema(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS conversation_preferences (
+      id serial PRIMARY KEY,
+      profile_id integer NOT NULL,
+      conversation_id integer NOT NULL,
+      is_muted boolean NOT NULL DEFAULT false,
+      CONSTRAINT conversation_preferences_profile_conversation_unique UNIQUE (profile_id, conversation_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_blocks (
+      id serial PRIMARY KEY,
+      blocker_id integer NOT NULL,
+      blocked_id integer NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT user_blocks_blocker_blocked_unique UNIQUE (blocker_id, blocked_id),
+      CONSTRAINT user_blocks_no_self_block CHECK (blocker_id <> blocked_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_reports (
+      id serial PRIMARY KEY,
+      reporter_id integer NOT NULL,
+      reported_id integer NOT NULL,
+      reason text NOT NULL,
+      details text,
+      status text NOT NULL DEFAULT 'open',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT user_reports_no_self_report CHECK (reporter_id <> reported_id)
+    );
+
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS participant_a integer;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS participant_b integer;
     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS job_id integer;
@@ -56,5 +84,6 @@ export async function ensureMessagingSchema(): Promise<void> {
     ALTER TABLE message_reports ADD COLUMN IF NOT EXISTS reason text;
     ALTER TABLE message_reports ADD COLUMN IF NOT EXISTS details text;
     ALTER TABLE message_reports ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+    ALTER TABLE user_reports ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open';
   `);
 }

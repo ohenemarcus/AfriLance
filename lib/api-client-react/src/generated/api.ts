@@ -24,13 +24,17 @@ import type {
   AdminChangeUserRoleBody,
   AdminFlagBody,
   AdminListJobsParams,
+  AdminListUserReports200,
   AdminListUsersParams,
   AdminStats,
+  AdminUpdateUserReportBody,
   AdminUser,
   AdminUserListResponse,
+  AdminUserReport,
   AdminVerifyUserBody,
   ApproveJobWork200,
   AuditLogListResponse,
+  BlockConversationUser200,
   ClientDashboard,
   ConversationListResponse,
   CreateJobBody,
@@ -63,8 +67,10 @@ import type {
   Profile,
   Proposal,
   ProposalListResponse,
+  ReportConversationUser201,
   ReportMessage201,
   ReportMessageBody,
+  ReportUserBody,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RequestWorkRevisionBody,
@@ -78,6 +84,9 @@ import type {
   SendMessageBody,
   SubmitJobWorkBody,
   TypingStatus,
+  UnblockConversationUser200,
+  UpdateConversationMute200,
+  UpdateConversationMuteBody,
   UpdateConversationTypingBody,
   UpdateJobBody,
   UpdateProposalStatusBody,
@@ -1994,6 +2003,288 @@ export const useUpdateConversationTyping = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateConversationTypingMutationOptions(options));
+    }
+
+export const getUpdateConversationMuteUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/mute`
+}
+
+/**
+ * @summary Set the current user's mute preference for a conversation
+ */
+export const updateConversationMute = async (conversationId: number,
+    updateConversationMuteBody: UpdateConversationMuteBody, options?: RequestInit): Promise<UpdateConversationMute200> => {
+
+  return customFetch<UpdateConversationMute200>(getUpdateConversationMuteUrl(conversationId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateConversationMuteBody)
+  }
+);}
+
+
+
+
+export const getUpdateConversationMuteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationMute>>, TError,{conversationId: number;data: BodyType<UpdateConversationMuteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateConversationMute>>, TError,{conversationId: number;data: BodyType<UpdateConversationMuteBody>}, TContext> => {
+
+const mutationKey = ['updateConversationMute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateConversationMute>>, {conversationId: number;data: BodyType<UpdateConversationMuteBody>}> = (props) => {
+          const {conversationId,data} = props ?? {};
+
+          return  updateConversationMute(conversationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateConversationMuteMutationResult = NonNullable<Awaited<ReturnType<typeof updateConversationMute>>>
+    export type UpdateConversationMuteMutationBody = BodyType<UpdateConversationMuteBody>
+    export type UpdateConversationMuteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set the current user's mute preference for a conversation
+ */
+export const useUpdateConversationMute = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationMute>>, TError,{conversationId: number;data: BodyType<UpdateConversationMuteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateConversationMute>>,
+        TError,
+        {conversationId: number;data: BodyType<UpdateConversationMuteBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateConversationMuteMutationOptions(options));
+    }
+
+export const getBlockConversationUserUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/block`
+}
+
+/**
+ * @summary Block the other participant in a conversation
+ */
+export const blockConversationUser = async (conversationId: number, options?: RequestInit): Promise<BlockConversationUser200> => {
+
+  return customFetch<BlockConversationUser200>(getBlockConversationUserUrl(conversationId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getBlockConversationUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockConversationUser>>, TError,{conversationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof blockConversationUser>>, TError,{conversationId: number}, TContext> => {
+
+const mutationKey = ['blockConversationUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof blockConversationUser>>, {conversationId: number}> = (props) => {
+          const {conversationId} = props ?? {};
+
+          return  blockConversationUser(conversationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BlockConversationUserMutationResult = NonNullable<Awaited<ReturnType<typeof blockConversationUser>>>
+
+    export type BlockConversationUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Block the other participant in a conversation
+ */
+export const useBlockConversationUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockConversationUser>>, TError,{conversationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof blockConversationUser>>,
+        TError,
+        {conversationId: number},
+        TContext
+      > => {
+      return useMutation(getBlockConversationUserMutationOptions(options));
+    }
+
+export const getUnblockConversationUserUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/block`
+}
+
+/**
+ * @summary Unblock the other participant in a conversation
+ */
+export const unblockConversationUser = async (conversationId: number, options?: RequestInit): Promise<UnblockConversationUser200> => {
+
+  return customFetch<UnblockConversationUser200>(getUnblockConversationUserUrl(conversationId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getUnblockConversationUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unblockConversationUser>>, TError,{conversationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unblockConversationUser>>, TError,{conversationId: number}, TContext> => {
+
+const mutationKey = ['unblockConversationUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unblockConversationUser>>, {conversationId: number}> = (props) => {
+          const {conversationId} = props ?? {};
+
+          return  unblockConversationUser(conversationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnblockConversationUserMutationResult = NonNullable<Awaited<ReturnType<typeof unblockConversationUser>>>
+
+    export type UnblockConversationUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Unblock the other participant in a conversation
+ */
+export const useUnblockConversationUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unblockConversationUser>>, TError,{conversationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unblockConversationUser>>,
+        TError,
+        {conversationId: number},
+        TContext
+      > => {
+      return useMutation(getUnblockConversationUserMutationOptions(options));
+    }
+
+export const getReportConversationUserUrl = (conversationId: number,) => {
+
+
+
+
+  return `/api/messages/conversations/${conversationId}/reports`
+}
+
+/**
+ * @summary Report the other participant in a conversation
+ */
+export const reportConversationUser = async (conversationId: number,
+    reportUserBody: ReportUserBody, options?: RequestInit): Promise<ReportConversationUser201> => {
+
+  return customFetch<ReportConversationUser201>(getReportConversationUserUrl(conversationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reportUserBody)
+  }
+);}
+
+
+
+
+export const getReportConversationUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportConversationUser>>, TError,{conversationId: number;data: BodyType<ReportUserBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportConversationUser>>, TError,{conversationId: number;data: BodyType<ReportUserBody>}, TContext> => {
+
+const mutationKey = ['reportConversationUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportConversationUser>>, {conversationId: number;data: BodyType<ReportUserBody>}> = (props) => {
+          const {conversationId,data} = props ?? {};
+
+          return  reportConversationUser(conversationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportConversationUserMutationResult = NonNullable<Awaited<ReturnType<typeof reportConversationUser>>>
+    export type ReportConversationUserMutationBody = BodyType<ReportUserBody>
+    export type ReportConversationUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Report the other participant in a conversation
+ */
+export const useReportConversationUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportConversationUser>>, TError,{conversationId: number;data: BodyType<ReportUserBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportConversationUser>>,
+        TError,
+        {conversationId: number;data: BodyType<ReportUserBody>},
+        TContext
+      > => {
+      return useMutation(getReportConversationUserMutationOptions(options));
     }
 
 export const getReportMessageUrl = (messageId: number,) => {
@@ -4220,6 +4511,154 @@ export function useGetAdminAuditLogs<TData = Awaited<ReturnType<typeof getAdminA
 
 
 
+export const getAdminListUserReportsUrl = () => {
+
+
+
+
+  return `/api/admin/user-reports`
+}
+
+/**
+ * @summary List user safety reports
+ */
+export const adminListUserReports = async ( options?: RequestInit): Promise<AdminListUserReports200> => {
+
+  return customFetch<AdminListUserReports200>(getAdminListUserReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminListUserReportsQueryKey = () => {
+    return [
+    `/api/admin/user-reports`
+    ] as const;
+    }
+
+
+export const getAdminListUserReportsQueryOptions = <TData = Awaited<ReturnType<typeof adminListUserReports>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof adminListUserReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminListUserReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListUserReports>>> = ({ signal }) => adminListUserReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminListUserReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type AdminListUserReportsQueryResult = NonNullable<Awaited<ReturnType<typeof adminListUserReports>>>
+export type AdminListUserReportsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List user safety reports
+ */
+
+export function useAdminListUserReports<TData = Awaited<ReturnType<typeof adminListUserReports>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof adminListUserReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getAdminListUserReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAdminUpdateUserReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/user-reports/${id}`
+}
+
+/**
+ * @summary Update a user report moderation status
+ */
+export const adminUpdateUserReport = async (id: number,
+    adminUpdateUserReportBody: AdminUpdateUserReportBody, options?: RequestInit): Promise<AdminUserReport> => {
+
+  return customFetch<AdminUserReport>(getAdminUpdateUserReportUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminUpdateUserReportBody)
+  }
+);}
+
+
+
+
+export const getAdminUpdateUserReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminUpdateUserReport>>, TError,{id: number;data: BodyType<AdminUpdateUserReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminUpdateUserReport>>, TError,{id: number;data: BodyType<AdminUpdateUserReportBody>}, TContext> => {
+
+const mutationKey = ['adminUpdateUserReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminUpdateUserReport>>, {id: number;data: BodyType<AdminUpdateUserReportBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  adminUpdateUserReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminUpdateUserReportMutationResult = NonNullable<Awaited<ReturnType<typeof adminUpdateUserReport>>>
+    export type AdminUpdateUserReportMutationBody = BodyType<AdminUpdateUserReportBody>
+    export type AdminUpdateUserReportMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a user report moderation status
+ */
+export const useAdminUpdateUserReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminUpdateUserReport>>, TError,{id: number;data: BodyType<AdminUpdateUserReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminUpdateUserReport>>,
+        TError,
+        {id: number;data: BodyType<AdminUpdateUserReportBody>},
+        TContext
+      > => {
+      return useMutation(getAdminUpdateUserReportMutationOptions(options));
+    }
+
 export const getRequestUploadUrlUrl = () => {
 
 
@@ -4289,3 +4728,4 @@ export const useRequestUploadUrl = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRequestUploadUrlMutationOptions(options));
     }
+

@@ -624,6 +624,112 @@ paths:
         "204":
           description: Typing state updated
 
+  /messages/conversations/{conversationId}/mute:
+    patch:
+      operationId: updateConversationMute
+      tags: [messages]
+      summary: Set the current user's mute preference for a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                muted:
+                  type: boolean
+              required: [muted]
+      responses:
+        "200":
+          description: Updated mute preference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  muted:
+                    type: boolean
+                required: [muted]
+
+  /messages/conversations/{conversationId}/block:
+    post:
+      operationId: blockConversationUser
+      tags: [messages]
+      summary: Block the other participant in a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User blocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blocked:
+                    type: boolean
+                required: [blocked]
+    delete:
+      operationId: unblockConversationUser
+      tags: [messages]
+      summary: Unblock the other participant in a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User unblocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blocked:
+                    type: boolean
+                required: [blocked]
+
+  /messages/conversations/{conversationId}/reports:
+    post:
+      operationId: reportConversationUser
+      tags: [messages]
+      summary: Report the other participant in a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportUserBody"
+      responses:
+        "201":
+          description: User report submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reported:
+                    type: boolean
+                required: [reported]
+
   /messages/{messageId}/reports:
     post:
       operationId: reportMessage
@@ -1190,6 +1296,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuditLogListResponse"
 
+  /admin/user-reports:
+    get:
+      operationId: adminListUserReports
+      tags: [admin]
+      summary: List user safety reports
+      responses:
+        "200":
+          description: User reports for moderation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminUserReport"
+                required: [reports]
+
+  /admin/user-reports/{id}:
+    patch:
+      operationId: adminUpdateUserReport
+      tags: [admin]
+      summary: Update a user report moderation status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [open, in_review, resolved]
+              required: [status]
+      responses:
+        "200":
+          description: Updated user report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserReport"
+
   /storage/uploads/request-url:
     post:
       operationId: requestUploadUrl
@@ -1706,6 +1861,12 @@ components:
           type: string
         otherUserAvatarUrl:
           type: ["string", "null"]
+        isMuted:
+          type: boolean
+        isBlockedByMe:
+          type: boolean
+        hasBlockedMe:
+          type: boolean
         lastMessage:
           type: ["string", "null"]
         lastMessageAt:
@@ -1720,6 +1881,9 @@ components:
         - id
         - otherUserId
         - otherUserName
+        - isMuted
+        - isBlockedByMe
+        - hasBlockedMe
         - unreadCount
         - job
 
@@ -1843,6 +2007,41 @@ components:
           type: string
           maxLength: 1000
       required: [reason]
+
+    ReportUserBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 120
+        details:
+          type: string
+          maxLength: 1000
+      required: [reason]
+
+    AdminUserReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        reason:
+          type: string
+        details:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, in_review, resolved]
+        createdAt:
+          type: string
+        reporterId:
+          type: integer
+        reporterName:
+          type: ["string", "null"]
+        reportedId:
+          type: integer
+        reportedName:
+          type: ["string", "null"]
+      required: [id, reason, details, status, createdAt, reporterId, reportedId]
 
     Notification:
       type: object

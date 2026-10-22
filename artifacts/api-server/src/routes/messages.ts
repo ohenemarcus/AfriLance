@@ -2,7 +2,19 @@ import { Router } from "express";
 import { eq, and, or, sql, desc, ne } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { Readable } from "stream";
-import { db, conversationsTable, messagesTable, messageReportsTable, profilesTable, notificationsTable, proposalsTable, jobsTable } from "@workspace/db";
+import {
+  db,
+  conversationsTable,
+  messagesTable,
+  messageReportsTable,
+  conversationPreferencesTable,
+  userBlocksTable,
+  userReportsTable,
+  profilesTable,
+  notificationsTable,
+  proposalsTable,
+  jobsTable,
+} from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
 import {
   GetConversationMessagesParams,
@@ -21,6 +33,18 @@ async function requireProfile(userId: string) {
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
   return profile;
+}
+
+async function hasBlockBetween(firstProfileId: number, secondProfileId: number): Promise<boolean> {
+  const [block] = await db
+    .select({ id: userBlocksTable.id })
+    .from(userBlocksTable)
+    .where(or(
+      and(eq(userBlocksTable.blockerId, firstProfileId), eq(userBlocksTable.blockedId, secondProfileId)),
+      and(eq(userBlocksTable.blockerId, secondProfileId), eq(userBlocksTable.blockedId, firstProfileId)),
+    ))
+    .limit(1);
+  return Boolean(block);
 }
 
 router.get("/messages/:messageId/attachment", async (req, res): Promise<void> => {
@@ -141,6 +165,19 @@ router.get("/messages/conversations", async (req, res): Promise<void> => {
     )
     .orderBy(desc(conversationsTable.lastMessageAt));
 
+  const [preferences, blockRows] = await Promise.all([
+    db.select().from(conversationPreferencesTable).where(eq(conversationPreferencesTable.profileId, profile.id)),
+    db.select().from(userBlocksTable).where(
+      or(
+        eq(userBlocksTable.blockerId, profile.id),
+        eq(userBlocksTable.blockedId, profile.id),
+      ),
+    ),
+  ]);
+  const mutedConversationIds = new Set(
+    preferences.filter((preference) => preference.isMuted).map((preference) => preference.conversationId),
+  );
+
   const enriched = await Promise.all(
     convos.map(async (c) => {
       const otherId =
@@ -186,6 +223,9 @@ router.get("/messages/conversations", async (req, res): Promise<void> => {
         otherUserId: otherId,
         otherUserName: other?.name ?? "Unknown",
         otherUserAvatarUrl: other?.avatarUrl ?? null,
+        isMuted: mutedConversationIds.has(c.id),
+        isBlockedByMe: blockRows.some((block) => block.blockerId === profile.id && block.blockedId === otherId),
+        hasBlockedMe: blockRows.some((block) => block.blockerId === otherId && block.blockedId === profile.id),
         lastMessage: c.lastMessage,
         lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
         unreadCount: Number(count),
@@ -364,6 +404,10 @@ router.post("/messages", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (parsed.data.recipientId === profile.id) {
+    res.status(400).json({ error: "You cannot message yourself." });
+    return;
+  }
   const hasAttachment = Boolean(parsed.data.attachmentUrl);
   if (
     (!parsed.data.content.trim() && !hasAttachment) ||
@@ -415,6 +459,11 @@ router.post("/messages", async (req, res): Promise<void> => {
     return;
   }
 
+  if (await hasBlockBetween(profile.id, parsed.data.recipientId)) {
+    res.status(403).json({ error: "Messaging is unavailable between these users." });
+    return;
+  }
+
   const isNewConversation = !conversation;
 
   if (!conversation) {
@@ -463,7 +512,15 @@ router.post("/messages", async (req, res): Promise<void> => {
       ),
     );
 
-  if (isNewConversation || Number(unreadCount) === 0) {
+  const [recipientPreference] = await db
+    .select({ isMuted: conversationPreferencesTable.isMuted })
+    .from(conversationPreferencesTable)
+    .where(and(
+      eq(conversationPreferencesTable.profileId, parsed.data.recipientId),
+      eq(conversationPreferencesTable.conversationId, conversation.id),
+    ));
+
+  if (!recipientPreference?.isMuted && (isNewConversation || Number(unreadCount) === 0)) {
     await db.insert(notificationsTable).values({
       userId: parsed.data.recipientId,
       type: "new_message",
@@ -491,6 +548,11 @@ router.get("/messages/conversations/:conversationId/typing", async (req, res): P
     res.status(404).json({ error: "Conversation not found" });
     return;
   }
+  const otherId = conversation.participantA === profile.id ? conversation.participantB : conversation.participantA;
+  if (await hasBlockBetween(profile.id, otherId)) {
+    res.json({ isTyping: false });
+    return;
+  }
 
   const states = typingByConversation.get(conversationId);
   const now = Date.now();
@@ -510,6 +572,12 @@ router.post("/messages/conversations/:conversationId/typing", async (req, res): 
     .where(eq(conversationsTable.id, conversationId));
   if (!profile || !conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
     res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const otherId = conversation.participantA === profile.id ? conversation.participantB : conversation.participantA;
+  if (await hasBlockBetween(profile.id, otherId)) {
+    typingByConversation.get(conversationId)?.delete(profile.id);
+    res.status(204).end();
     return;
   }
 
@@ -553,6 +621,114 @@ router.post("/messages/:messageId/reports", async (req, res): Promise<void> => {
   await db.insert(messageReportsTable).values({
     messageId,
     reporterId: profile.id,
+    reason,
+    details: details || null,
+  });
+  res.status(201).json({ reported: true });
+});
+
+router.patch("/messages/conversations/:conversationId/mute", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  const profile = userId ? await requireProfile(userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!Number.isInteger(conversationId) || conversationId <= 0 || typeof req.body?.muted !== "boolean") {
+    res.status(400).json({ error: "Invalid mute preference" });
+    return;
+  }
+
+  const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+  if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const [preference] = await db
+    .insert(conversationPreferencesTable)
+    .values({ profileId: profile.id, conversationId, isMuted: req.body.muted })
+    .onConflictDoUpdate({
+      target: [conversationPreferencesTable.profileId, conversationPreferencesTable.conversationId],
+      set: { isMuted: req.body.muted },
+    })
+    .returning();
+  res.json({ muted: preference.isMuted });
+});
+
+router.post("/messages/conversations/:conversationId/block", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  const profile = userId ? await requireProfile(userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!Number.isInteger(conversationId) || conversationId <= 0) {
+    res.status(400).json({ error: "Invalid conversation ID" });
+    return;
+  }
+  const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+  if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const otherId = conversation.participantA === profile.id ? conversation.participantB : conversation.participantA;
+  if (otherId === profile.id) {
+    res.status(400).json({ error: "You cannot block yourself." });
+    return;
+  }
+  await db.insert(userBlocksTable)
+    .values({ blockerId: profile.id, blockedId: otherId })
+    .onConflictDoNothing();
+  res.json({ blocked: true });
+});
+
+router.delete("/messages/conversations/:conversationId/block", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  const profile = userId ? await requireProfile(userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!Number.isInteger(conversationId) || conversationId <= 0) {
+    res.status(400).json({ error: "Invalid conversation ID" });
+    return;
+  }
+  const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+  if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const otherId = conversation.participantA === profile.id ? conversation.participantB : conversation.participantA;
+  if (otherId === profile.id) {
+    res.status(400).json({ error: "Invalid conversation participant." });
+    return;
+  }
+  await db.delete(userBlocksTable).where(and(
+    eq(userBlocksTable.blockerId, profile.id),
+    eq(userBlocksTable.blockedId, otherId),
+  ));
+  res.json({ blocked: false });
+});
+
+router.post("/messages/conversations/:conversationId/reports", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  const profile = userId ? await requireProfile(userId) : null;
+  const conversationId = Number(req.params.conversationId);
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const details = typeof req.body?.details === "string" ? req.body.details.trim() : "";
+  if (!profile) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!Number.isInteger(conversationId) || conversationId <= 0 || !reason || reason.length > 120 || details.length > 1000) {
+    res.status(400).json({ error: "Invalid report" });
+    return;
+  }
+  const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+  if (!conversation || ![conversation.participantA, conversation.participantB].includes(profile.id)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const reportedId = conversation.participantA === profile.id ? conversation.participantB : conversation.participantA;
+  if (reportedId === profile.id) {
+    res.status(400).json({ error: "You cannot report yourself." });
+    return;
+  }
+  await db.insert(userReportsTable).values({
+    reporterId: profile.id,
+    reportedId,
     reason,
     details: details || null,
   });

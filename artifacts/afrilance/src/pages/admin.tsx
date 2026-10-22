@@ -24,7 +24,7 @@ import { DisputeEvidenceFile } from "@/components/DisputeEvidenceFile";
 import { formatRelative, formatCurrency } from "@/lib/format";
 import { useAuth } from "@clerk/react";
 
-type Tab = "overview" | "users" | "jobs" | "flagged" | "onboarding" | "failed-payments" | "disputes" | "support" | "audit";
+type Tab = "overview" | "users" | "jobs" | "flagged" | "onboarding" | "failed-payments" | "disputes" | "user-reports" | "support" | "audit";
 type OnboardingIssue = {
   id: number;
   name: string;
@@ -56,6 +56,17 @@ type SupportRequest = {
   message: string;
   status: "open" | "in_progress" | "resolved";
   createdAt: string;
+};
+type UserReport = {
+  id: number;
+  reason: string;
+  details: string | null;
+  status: "open" | "in_review" | "resolved";
+  createdAt: string;
+  reporterId: number;
+  reporterName: string | null;
+  reportedId: number;
+  reportedName: string | null;
 };
 type AdminDispute = {
   id: number;
@@ -111,6 +122,7 @@ export default function AdminPage() {
     query: { queryKey: getGetMyProfileQueryKey() },
   });
   const isAdmin = profile?.role === "admin";
+  const canModerate = isAdmin || profile?.role === "moderator";
   const [tab, setTab] = useState<Tab>(() => {
     const requestedTab = new URLSearchParams(window.location.search).get("tab");
     return requestedTab === "disputes" ? requestedTab : "users";
@@ -135,6 +147,9 @@ export default function AdminPage() {
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [supportFilter, setSupportFilter] = useState("open");
+  const [userReports, setUserReports] = useState<UserReport[]>([]);
+  const [userReportsLoading, setUserReportsLoading] = useState(false);
+  const [userReportsError, setUserReportsError] = useState("");
 
   const { data: stats, isLoading: statsLoading } = useGetAdminStats({
     query: {
@@ -227,6 +242,19 @@ export default function AdminPage() {
     return () => { active = false; };
   }, [tab, supportFilter, getToken]);
 
+  useEffect(() => {
+    if (tab !== "user-reports") return;
+    let active = true;
+    setUserReportsLoading(true);
+    setUserReportsError("");
+    void getToken()
+      .then((token) => adminApiRequest<{ reports: UserReport[] }>("/api/admin/user-reports", token))
+      .then((body) => { if (active) setUserReports(body.reports); })
+      .catch((cause) => { if (active) setUserReportsError(cause instanceof Error ? cause.message : "Could not load user reports"); })
+      .finally(() => { if (active) setUserReportsLoading(false); });
+    return () => { active = false; };
+  }, [tab, getToken]);
+
   const submitDisputeDecision = async (dispute: AdminDispute) => {
     const form = disputeDecision[dispute.id] ?? { decision: "refund_full", amount: String(dispute.requestedAmount), notes: "" };
     setDisputeError("");
@@ -261,6 +289,21 @@ export default function AdminPage() {
       }
     } catch (cause) {
       setSupportError(cause instanceof Error ? cause.message : "Could not update support request");
+    }
+  };
+
+  const updateUserReport = async (id: number, status: UserReport["status"]) => {
+    setUserReportsError("");
+    try {
+      const token = await getToken();
+      const updated = await adminApiRequest<UserReport>(`/api/admin/user-reports/${id}`, token, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      setUserReports((items) => items.map((item) => item.id === id ? { ...item, status: updated.status } : item));
+    } catch (cause) {
+      setUserReportsError(cause instanceof Error ? cause.message : "Could not update user report");
     }
   };
 
@@ -345,6 +388,7 @@ export default function AdminPage() {
     { key: "flagged", label: "Flagged Listings" },
     { key: "failed-payments", label: "Failed Payments" },
     { key: "disputes", label: "Disputes" },
+    ...(canModerate ? [{ key: "user-reports" as const, label: "User Reports" }] : []),
     ...(isAdmin ? [{ key: "support" as const, label: "Support Inbox" }] : []),
     ...(isAdmin ? [{ key: "audit" as const, label: "Audit Log" }] : []),
   ];
@@ -908,6 +952,41 @@ export default function AdminPage() {
                       <div className="text-xs text-muted-foreground">{request.name} · <a className="text-primary underline underline-offset-2" href={`mailto:${request.email}`}>{request.email}</a></div>
                       <a className="text-sm font-medium text-primary hover:underline" href={`mailto:${request.email}?subject=${encodeURIComponent(`Re: ${request.subject}`)}`}>Reply by email</a>
                     </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "user-reports" && canModerate && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">User reports</h2>
+              <p className="text-sm text-muted-foreground">Review reports submitted from conversations. Reports are visible only to administrators.</p>
+            </div>
+            {userReportsError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{userReportsError}</p>}
+            {userReportsLoading ? (
+              <div className="space-y-3">{[...Array(3)].map((_, index) => <Skeleton key={index} className="h-32 rounded-xl" />)}</div>
+            ) : userReports.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground">No user reports have been submitted.</div>
+            ) : (
+              <div className="space-y-3">
+                {userReports.map((report) => (
+                  <article key={report.id} className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-foreground">{report.reason}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">#{report.id} · {formatRelative(report.createdAt)}</p>
+                        <p className="mt-2 text-sm text-foreground">Reported user: {report.reportedName ?? `User #${report.reportedId}`} · Reported by: {report.reporterName ?? `User #${report.reporterId}`}</p>
+                      </div>
+                      <select aria-label={`Update status for user report ${report.id}`} value={report.status} onChange={(event) => void updateUserReport(report.id, event.target.value as UserReport["status"])} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs">
+                        <option value="open">Open</option>
+                        <option value="in_review">In review</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
+                    {report.details && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{report.details}</p>}
                   </article>
                 ))}
               </div>

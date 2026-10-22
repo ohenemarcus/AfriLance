@@ -13,6 +13,9 @@ export interface Conversation {
   otherUserName: string;
   /** @nullable */
   otherUserAvatarUrl?: string | null;
+  isMuted: boolean;
+  isBlockedByMe: boolean;
+  hasBlockedMe: boolean;
   /** @nullable */
   lastMessage?: string | null;
   /** @nullable */

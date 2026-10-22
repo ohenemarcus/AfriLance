@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/UserAvatar";
 import { formatBudget, formatCurrency, formatRelative } from "@/lib/format";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { ArrowLeft, FileText, Flag, ImagePlus, Search, X } from "lucide-react";
+import { ArrowLeft, Ban, BellOff, FileText, Flag, ImagePlus, Search, X } from "lucide-react";
 
 function attachmentApiUrl(messageId: number): string {
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -91,6 +91,14 @@ export default function MessagesPage() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSending, setReportSending] = useState(false);
+  const [reportUserOpen, setReportUserOpen] = useState(false);
+  const [reportUserReason, setReportUserReason] = useState("Harassment or abuse");
+  const [reportUserDetails, setReportUserDetails] = useState("");
+  const [reportUserError, setReportUserError] = useState("");
+  const [userActionError, setUserActionError] = useState("");
+  const [userActionNotice, setUserActionNotice] = useState("");
+  const [userActionPending, setUserActionPending] = useState(false);
+  const [confirmBlockOpen, setConfirmBlockOpen] = useState(false);
   const [conversationOpenError, setConversationOpenError] = useState("");
   const handledProposalId = useRef<number | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,6 +248,66 @@ export default function MessagesPage() {
     }
   };
 
+  const toggleMute = async () => {
+    if (!selectedConvo) return;
+    setUserActionError("");
+    setUserActionNotice("");
+    setUserActionPending(true);
+    try {
+      await customFetch<{ muted: boolean }>(`/api/messages/conversations/${selectedConvo.id}/mute`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ muted: !selectedConvo.isMuted }),
+      });
+      await queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    } catch {
+      setUserActionError("Could not update this conversation’s notification setting. Please try again.");
+    } finally {
+      setUserActionPending(false);
+    }
+  };
+
+  const setUserBlocked = async (blocked: boolean) => {
+    if (!selectedConvo) return;
+    setUserActionError("");
+    setUserActionNotice("");
+    setUserActionPending(true);
+    try {
+      await customFetch<{ blocked: boolean }>(`/api/messages/conversations/${selectedConvo.id}/block`, {
+        method: blocked ? "POST" : "DELETE",
+      });
+      setConfirmBlockOpen(false);
+      if (blocked) updateTyping(false);
+      setUserActionNotice(blocked ? "User blocked. Existing conversation history remains available." : "User unblocked.");
+      await queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    } catch {
+      setUserActionError(blocked ? "Could not block this user. Please try again." : "Could not unblock this user. Please try again.");
+    } finally {
+      setUserActionPending(false);
+    }
+  };
+
+  const reportUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedConvo) return;
+    setReportUserError("");
+    setUserActionPending(true);
+    try {
+      await customFetch<{ reported: boolean }>(`/api/messages/conversations/${selectedConvo.id}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reportUserReason, details: reportUserDetails }),
+      });
+      setReportUserOpen(false);
+      setReportUserDetails("");
+      setUserActionNotice("Your report was submitted to Afrlance for review.");
+    } catch {
+      setReportUserError("Could not submit this report. Please try again.");
+    } finally {
+      setUserActionPending(false);
+    }
+  };
+
   const selectedConvo = conversationsData?.conversations.find(
     (c) => c.id === selectedConversation,
   );
@@ -294,7 +362,11 @@ export default function MessagesPage() {
                   <UserAvatar name={c.otherUserName} avatarUrl={c.otherUserAvatarUrl} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-foreground truncate">{c.otherUserName}</span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="text-sm font-medium text-foreground truncate">{c.otherUserName}</span>
+                        {c.isMuted && <BellOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Muted" />}
+                        {c.isBlockedByMe && <Ban className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="Blocked" />}
+                      </span>
                       {c.unreadCount > 0 && (
                         <span className="bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ml-1">
                           {c.unreadCount}
@@ -341,7 +413,40 @@ export default function MessagesPage() {
                   <span className="block truncate font-medium text-foreground">{selectedConvo?.otherUserName}</span>
                   {otherUserTyping?.isTyping && <span aria-live="polite" className="text-xs text-muted-foreground">Typing…</span>}
                 </div>
+                {selectedConvo && (
+                  <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+                    <button type="button" onClick={() => void toggleMute()} disabled={userActionPending} aria-label={selectedConvo.isMuted ? "Unmute conversation" : "Mute conversation"} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50">
+                      <BellOff className="h-3.5 w-3.5" />{selectedConvo.isMuted ? "Unmute" : "Mute"}
+                    </button>
+                    <button type="button" onClick={() => { setReportUserError(""); setReportUserOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted">
+                      <Flag className="h-3.5 w-3.5" />Report
+                    </button>
+                    {selectedConvo.isBlockedByMe ? (
+                      <button type="button" onClick={() => void setUserBlocked(false)} disabled={userActionPending} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50">
+                        Unblock
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmBlockOpen(true)} disabled={userActionPending || selectedConvo.hasBlockedMe} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50">
+                        <Ban className="h-3.5 w-3.5" />Block
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {(userActionError || userActionNotice) && (
+                <p role={userActionError ? "alert" : "status"} className={`border-b px-4 py-2 text-sm ${userActionError ? "border-destructive/20 bg-destructive/10 text-destructive" : "border-border bg-muted/40 text-muted-foreground"}`}>
+                  {userActionError || userActionNotice}
+                </p>
+              )}
+
+              {(selectedConvo?.isBlockedByMe || selectedConvo?.hasBlockedMe) && (
+                <div role="status" className="border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                  {selectedConvo.isBlockedByMe
+                    ? "You blocked this user. Existing messages remain available; unblock them to send new messages."
+                    : "This user has blocked you. You can still view this conversation, but messaging is unavailable."}
+                </div>
+              )}
 
               {selectedConvo?.job && (
                 <div className="border-b border-border bg-muted/30 px-4 py-3 sm:px-5">
@@ -420,25 +525,60 @@ export default function MessagesPage() {
                     className="hidden"
                     onChange={(event) => setAttachment(event.target.files?.[0] ?? null)}
                   />
-                  <button type="button" onClick={() => fileInput.current?.click()} aria-label="Attach a file or image" title="Attach a file or image" className="rounded-md border border-border p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <button type="button" onClick={() => fileInput.current?.click()} disabled={selectedConvo?.isBlockedByMe || selectedConvo?.hasBlockedMe} aria-label="Attach a file or image" title="Attach a file or image" className="rounded-md border border-border p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                     <ImagePlus className="h-4 w-4" />
                   </button>
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => handleMessageChange(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder={selectedConvo?.isBlockedByMe || selectedConvo?.hasBlockedMe ? "Messaging is unavailable" : "Type a message..."}
+                  disabled={selectedConvo?.isBlockedByMe || selectedConvo?.hasBlockedMe}
                   className="min-w-0 flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
                 />
                 <button
                   type="submit"
-                  disabled={sending || isUploading || (!newMessage.trim() && !attachment)}
+                  disabled={sending || isUploading || (!newMessage.trim() && !attachment) || selectedConvo?.isBlockedByMe || selectedConvo?.hasBlockedMe}
                   className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   Send
                 </button>
                 </div>
               </form>
+              {reportUserOpen && selectedConvo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setReportUserOpen(false); }}>
+                  <form className="w-full max-w-md space-y-4 rounded-lg border border-border bg-background p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-user-title" onSubmit={(event) => void reportUser(event)}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div><h2 id="report-user-title" className="font-semibold">Report {selectedConvo.otherUserName}</h2><p className="mt-1 text-sm text-muted-foreground">Tell Afrlance why this user should be reviewed. Reports are sent to the support team.</p></div>
+                      <button type="button" onClick={() => setReportUserOpen(false)} aria-label="Close report dialog" className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                    </div>
+                    <select value={reportUserReason} onChange={(event) => setReportUserReason(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+                      <option>Harassment or abuse</option><option>Spam or scam</option><option>Impersonation</option><option>Inappropriate behavior</option><option>Other</option>
+                    </select>
+                    <textarea value={reportUserDetails} onChange={(event) => setReportUserDetails(event.target.value)} maxLength={1000} rows={3} placeholder="Additional details (optional)" className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    {reportUserError && <p role="alert" className="text-sm text-destructive">{reportUserError}</p>}
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => setReportUserOpen(false)} className="rounded-md border border-border px-3 py-2 text-sm">Cancel</button>
+                      <button type="submit" disabled={userActionPending} className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-50">{userActionPending ? "Submitting..." : "Submit report"}</button>
+                    </div>
+                  </form>
+                </div>
+              )}
+              {confirmBlockOpen && selectedConvo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmBlockOpen(false); }}>
+                  <section className="w-full max-w-md space-y-4 rounded-lg border border-border bg-background p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="block-user-title">
+                    <div>
+                      <h2 id="block-user-title" className="font-semibold">Block {selectedConvo.otherUserName}?</h2>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">They won’t be able to send you messages, and you won’t be able to message them. Existing conversation history stays available. You can unblock them later.</p>
+                    </div>
+                    {userActionError && <p role="alert" className="text-sm text-destructive">{userActionError}</p>}
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => setConfirmBlockOpen(false)} className="rounded-md border border-border px-3 py-2 text-sm">Cancel</button>
+                      <button type="button" onClick={() => void setUserBlocked(true)} disabled={userActionPending} className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-50">{userActionPending ? "Blocking..." : "Block user"}</button>
+                    </div>
+                  </section>
+                </div>
+              )}
               {reportingMessage !== null && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setReportingMessage(null); }}>
                   <form className="w-full max-w-md space-y-4 rounded-lg border border-border bg-background p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-title" onSubmit={(event) => { event.preventDefault(); void reportMessage(reportingMessage); }}>

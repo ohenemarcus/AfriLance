@@ -335,6 +335,9 @@ export interface Conversation {
   otherUserName: string;
   /** @nullable */
   otherUserAvatarUrl?: string | null;
+  isMuted: boolean;
+  isBlockedByMe: boolean;
+  hasBlockedMe: boolean;
   /** @nullable */
   lastMessage?: string | null;
   /** @nullable */
@@ -385,6 +388,37 @@ export interface ReportMessageBody {
   reason: string;
   /** @maxLength 1000 */
   details?: string;
+}
+
+export interface ReportUserBody {
+  /** @maxLength 120 */
+  reason: string;
+  /** @maxLength 1000 */
+  details?: string;
+}
+
+export type AdminUserReportStatus = typeof AdminUserReportStatus[keyof typeof AdminUserReportStatus];
+
+
+export const AdminUserReportStatus = {
+  open: 'open',
+  in_review: 'in_review',
+  resolved: 'resolved',
+} as const;
+
+export interface AdminUserReport {
+  id: number;
+  reason: string;
+  /** @nullable */
+  details: string | null;
+  status: AdminUserReportStatus;
+  createdAt: string;
+  reporterId: number;
+  /** @nullable */
+  reporterName?: string | null;
+  reportedId: number;
+  /** @nullable */
+  reportedName?: string | null;
 }
 
 export interface Notification {
@@ -758,6 +792,26 @@ export type UpdateConversationTypingBody = {
   isTyping: boolean;
 };
 
+export type UpdateConversationMuteBody = {
+  muted: boolean;
+};
+
+export type UpdateConversationMute200 = {
+  muted: boolean;
+};
+
+export type BlockConversationUser200 = {
+  blocked: boolean;
+};
+
+export type UnblockConversationUser200 = {
+  blocked: boolean;
+};
+
+export type ReportConversationUser201 = {
+  reported: boolean;
+};
+
 export type ReportMessage201 = {
   reported: boolean;
 };
@@ -786,3 +840,21 @@ entityType?: string;
 limit?: number;
 offset?: number;
 };
+
+export type AdminListUserReports200 = {
+  reports: AdminUserReport[];
+};
+
+export type AdminUpdateUserReportBodyStatus = typeof AdminUpdateUserReportBodyStatus[keyof typeof AdminUpdateUserReportBodyStatus];
+
+
+export const AdminUpdateUserReportBodyStatus = {
+  open: 'open',
+  in_review: 'in_review',
+  resolved: 'resolved',
+} as const;
+
+export type AdminUpdateUserReportBody = {
+  status: AdminUpdateUserReportBodyStatus;
+};
+

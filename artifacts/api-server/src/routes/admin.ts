@@ -12,6 +12,7 @@ import {
   paymentsTable,
   notificationsTable,
   auditLogsTable,
+  userReportsTable,
 } from "@workspace/db";
 import {
   AdminListUsersQueryParams,
@@ -33,6 +34,8 @@ const AdminVerifyUserBody = z.object({
 const router = Router();
 const paymentClientProfile = alias(profilesTable, "admin_payment_client");
 const paymentFreelancerProfile = alias(profilesTable, "admin_payment_freelancer");
+const reportReporterProfile = alias(profilesTable, "user_report_reporter");
+const reportReportedProfile = alias(profilesTable, "user_report_reported");
 
 async function requireAdmin(userId: string) {
   if (!(await isAdminUser(userId))) return null;
@@ -515,6 +518,46 @@ router.patch("/admin/jobs/:id/flag", async (req, res): Promise<void> => {
 });
 
 // GET /admin/stats
+router.get("/admin/user-reports", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await requireModeratorOrAdmin(userId))) { res.status(403).json({ error: "Moderator access required" }); return; }
+
+  const reports = await db
+    .select({
+      id: userReportsTable.id,
+      reason: userReportsTable.reason,
+      details: userReportsTable.details,
+      status: userReportsTable.status,
+      createdAt: userReportsTable.createdAt,
+      reporterId: userReportsTable.reporterId,
+      reporterName: reportReporterProfile.name,
+      reportedId: userReportsTable.reportedId,
+      reportedName: reportReportedProfile.name,
+    })
+    .from(userReportsTable)
+    .leftJoin(reportReporterProfile, eq(userReportsTable.reporterId, reportReporterProfile.id))
+    .leftJoin(reportReportedProfile, eq(userReportsTable.reportedId, reportReportedProfile.id))
+    .orderBy(desc(userReportsTable.createdAt))
+    .limit(100);
+  res.json({ reports });
+});
+
+router.patch("/admin/user-reports/:id", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await requireModeratorOrAdmin(userId))) { res.status(403).json({ error: "Moderator access required" }); return; }
+  const params = z.object({ id: z.coerce.number().int().positive() }).safeParse(req.params);
+  const body = z.object({ status: z.enum(["open", "in_review", "resolved"]) }).safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid user report update" }); return; }
+  const [updated] = await db.update(userReportsTable)
+    .set({ status: body.data.status })
+    .where(eq(userReportsTable.id, params.data.id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "User report not found" }); return; }
+  res.json(updated);
+});
+
 router.get("/admin/stats", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth?.userId;
