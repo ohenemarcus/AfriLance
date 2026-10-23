@@ -1,5 +1,13 @@
 import { useParams, useLocation } from "wouter";
 import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  ExternalLink,
+  MapPin,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
+import {
   useGetProfile,
   useListProfileReviews,
   getGetProfileQueryKey,
@@ -69,61 +77,72 @@ export default function FreelancerProfilePage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <button
         onClick={() => setLocation("/freelancers")}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Freelancers
+        <ArrowLeft className="size-4" />
+        Back to talent
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile main */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Header */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-start gap-5">
-              <UserAvatar name={profile.name} avatarUrl={profile.avatarUrl} size="xl" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-bold text-foreground">{profile.name}</h1>
-                  {profile.isVerified && <VerifiedBadge />}
-                  {profile.isTopRated && <TopRatedBadge />}
+          <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            <div className="h-24 bg-[linear-gradient(100deg,hsl(var(--primary)),hsl(151_45%_25%))]" />
+            <div className="px-5 pb-5 sm:px-7">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                <div className="-mt-12 size-24 shrink-0 rounded-full border-4 border-card bg-card shadow-md">
+                  <UserAvatar name={profile.name} avatarUrl={profile.avatarUrl} size="xl" />
                 </div>
-                {profile.category && (
-                  <div className="text-sm text-muted-foreground mt-0.5">{profile.category}</div>
-                )}
-                {profile.location && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    </svg>
-                    {profile.location}
-                  </div>
-                )}
-                {profile.avgRating != null && (
-                  <div className="mt-2">
-                    <StarRating rating={profile.avgRating} total={profile.totalReviews} size="md" />
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-3 mt-3 text-sm">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                    </svg>
-                    {profile.completedJobs} jobs completed
+                <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-3 pb-1">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-2xl font-bold tracking-normal text-foreground">{profile.name}</h1>
+                      {profile.isVerified && <VerifiedBadge />}
+                      {profile.isTopRated && <TopRatedBadge />}
+                    </div>
+                    {profile.category && <p className="mt-1 text-base font-medium text-foreground/80">{profile.category}</p>}
+                    {profile.location && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="size-4" />
+                        {profile.location}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {profile.bio && (
-              <div className="mt-5 pt-5 border-t border-border">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">About</h3>
-                <p className="text-sm text-foreground leading-relaxed">{profile.bio}</p>
+              <div className="mt-5 grid grid-cols-3 divide-x divide-border border-y border-border py-4">
+                <div className="px-3 first:pl-0">
+                  <div className="flex items-center gap-1.5 text-foreground">
+                    <Star className="size-4 fill-secondary text-secondary" />
+                    <span className="font-bold">{profile.avgRating?.toFixed(1) ?? "New"}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{profile.totalReviews ?? 0} reviews</p>
+                </div>
+                <div className="px-3">
+                  <div className="flex items-center gap-1.5 font-bold text-foreground">
+                    <BriefcaseBusiness className="size-4 text-primary" />
+                    {profile.completedJobs ?? 0}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">Jobs completed</p>
+                </div>
+                <div className="px-3">
+                  <div className="flex items-center gap-1.5 font-bold text-foreground">
+                    <ShieldCheck className="size-4 text-primary" />
+                    {profile.isVerified ? "Verified" : "Pending"}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">Identity status</p>
+                </div>
               </div>
-            )}
-          </div>
+
+              {profile.bio && (
+                <div className="pt-5">
+                  <h2 className="text-sm font-semibold text-foreground">About</h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">{profile.bio}</p>
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* Skills */}
           {profile.skills.length > 0 && (
@@ -307,14 +326,23 @@ export default function FreelancerProfilePage() {
           )}
 
           <Show when="signed-in">
-            <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-semibold text-foreground mb-3">Work with {profile.name?.split(" ")[0]}</h3>
-              <a
-                href="/jobs/post"
-                className="block w-full text-center py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-              >
-                Post a Job
-              </a>
+            <div className="sticky top-24 overflow-hidden rounded-lg border border-primary/20 bg-card shadow-lg">
+              <div className="border-b border-primary/10 bg-primary px-5 py-4 text-primary-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wide opacity-75">Ready to collaborate?</p>
+                <h3 className="mt-1 text-lg font-bold">Hire {profile.name?.split(" ")[0]}</h3>
+              </div>
+              <div className="p-5">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Share your scope and timeline to start receiving proposals from vetted talent.
+                </p>
+                <a
+                  href="/jobs/post"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  Post a job
+                  <ExternalLink className="size-4" />
+                </a>
+              </div>
             </div>
           </Show>
 
