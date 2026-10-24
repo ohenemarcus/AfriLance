@@ -468,6 +468,9 @@ function Router() {
       <Route path="/jobs/post">
         <AuthenticatedRoute><PostJobPage /></AuthenticatedRoute>
       </Route>
+      <Route path="/jobs/:id/edit">
+        <AuthenticatedRoute><PostJobPage /></AuthenticatedRoute>
+      </Route>
       <Route path="/jobs/:id">
         <Layout><JobDetailPage /></Layout>
       </Route>

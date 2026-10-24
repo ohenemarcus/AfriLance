@@ -8,10 +8,13 @@ import {
   useListMyProposals,
   useUpdateProposalStatus,
   useUpdateJob,
+  useDeleteJob,
   useListProfileReviews,
   getGetJobQueryKey,
   getListJobProposalsQueryKey,
   getListMyProposalsQueryKey,
+  getListJobsQueryKey,
+  getListMyJobsQueryKey,
   getGetMyProfileQueryKey,
   getListProfileReviewsQueryKey,
 } from "@workspace/api-client-react";
@@ -78,6 +81,7 @@ export default function JobDetailPage() {
   const { mutate: createProposal, isPending: proposalPending } = useCreateProposal();
   const { mutate: updateStatus } = useUpdateProposalStatus();
   const { mutate: updateJob } = useUpdateJob();
+  const { mutate: deleteJob, isPending: isDeletingJob } = useDeleteJob();
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [proposal, setProposal] = useState({ coverLetter: "", bidAmount: "" });
@@ -86,6 +90,7 @@ export default function JobDetailPage() {
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [jobActionError, setJobActionError] = useState("");
 
   if (isLoading) {
     return (
@@ -186,6 +191,24 @@ export default function JobDetailPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
+        },
+      },
+    );
+  };
+
+  const handleDeleteJob = () => {
+    if (!window.confirm("Delete this job? This cannot be undone.")) return;
+    setJobActionError("");
+    deleteJob(
+      { id: jobId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListMyJobsQueryKey() });
+          setLocation("/dashboard");
+        },
+        onError: (err: any) => {
+          setJobActionError(err?.data?.error ?? "Failed to delete job. Please try again.");
         },
       },
     );
@@ -394,6 +417,26 @@ export default function JobDetailPage() {
             {isOwner && (
               <div className="bg-card border border-border rounded-xl p-5 space-y-2">
                 <h3 className="font-semibold text-foreground mb-2">Manage Job</h3>
+                {jobActionError && (
+                  <p role="alert" className="text-sm text-destructive">{jobActionError}</p>
+                )}
+                {job.proposalCount === 0 && (
+                  <>
+                    <button
+                      onClick={() => setLocation(`/jobs/${job.id}/edit`)}
+                      className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                    >
+                      Edit Job
+                    </button>
+                    <button
+                      onClick={handleDeleteJob}
+                      disabled={isDeletingJob}
+                      className="w-full py-2 border border-destructive/40 text-destructive rounded-lg text-sm font-medium hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                    >
+                      {isDeletingJob ? "Deleting..." : "Delete Job"}
+                    </button>
+                  </>
+                )}
                 {job.status === "open" && (
                   <button
                     onClick={handleCloseJob}

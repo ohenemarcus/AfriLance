@@ -85,37 +85,50 @@ router.post("/proposals", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check not already applied
-  const existing = await db
-    .select({ id: proposalsTable.id })
-    .from(proposalsTable)
-    .where(
-      and(
+  const result = await db.transaction(async (tx) => {
+    const [job] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, parsed.data.jobId))
+      .for("update");
+
+    if (!job) return { error: "job_not_found" as const };
+    if (job.status !== "open") return { error: "job_closed" as const };
+
+    const [existing] = await tx
+      .select({ id: proposalsTable.id })
+      .from(proposalsTable)
+      .where(and(
         eq(proposalsTable.jobId, parsed.data.jobId),
         eq(proposalsTable.freelancerId, profile.id),
-      ),
-    );
-  if (existing.length > 0) {
-    res.status(409).json({ error: "Already applied to this job" });
+      ));
+    if (existing) return { error: "already_applied" as const };
+
+    const [proposal] = await tx
+      .insert(proposalsTable)
+      .values({ ...parsed.data, freelancerId: profile.id })
+      .returning();
+
+    await tx
+      .update(jobsTable)
+      .set({ proposalCount: sql`${jobsTable.proposalCount} + 1` })
+      .where(eq(jobsTable.id, job.id));
+
+    return { proposal, job };
+  });
+
+  if ("error" in result) {
+    if (result.error === "job_not_found") {
+      res.status(404).json({ error: "Job not found" });
+    } else if (result.error === "already_applied") {
+      res.status(409).json({ error: "Already applied to this job" });
+    } else {
+      res.status(409).json({ error: "This job is no longer accepting proposals" });
+    }
     return;
   }
 
-  const [proposal] = await db
-    .insert(proposalsTable)
-    .values({ ...parsed.data, freelancerId: profile.id })
-    .returning();
-
-  // Increment proposal count on job
-  await db
-    .update(jobsTable)
-    .set({ proposalCount: sql`${jobsTable.proposalCount} + 1` })
-    .where(eq(jobsTable.id, parsed.data.jobId));
-
-  // Notify client
-  const [job] = await db
-    .select()
-    .from(jobsTable)
-    .where(eq(jobsTable.id, parsed.data.jobId));
+  const { proposal, job } = result;
 
   if (job) {
     await db.insert(notificationsTable).values({
@@ -128,7 +141,7 @@ router.post("/proposals", async (req, res): Promise<void> => {
     });
   }
 
-  res.status(201).json(enrichProposal(proposal, profile, job ?? null));
+  res.status(201).json(enrichProposal(proposal, profile, job));
 });
 
 // GET /proposals/:id

@@ -262,7 +262,7 @@ paths:
     patch:
       operationId: updateJob
       tags: [jobs]
-      summary: Update a job
+      summary: Update a job before proposals are received
       parameters:
         - name: id
           in: path
@@ -282,10 +282,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+        "409":
+          description: The job already has proposals or its status cannot be changed
     delete:
       operationId: deleteJob
       tags: [jobs]
-      summary: Delete a job
+      summary: Delete a job before proposals are received
       parameters:
         - name: id
           in: path
@@ -295,6 +297,8 @@ paths:
       responses:
         "204":
           description: Deleted
+        "409":
+          description: The job already has proposals
 
   /jobs/{jobId}/submissions:
     get:

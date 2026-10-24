@@ -248,46 +248,76 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existing] = await db
-    .select()
-    .from(jobsTable)
-    .where(eq(jobsTable.id, params.data.id));
-
-  if (!existing) {
-    res.status(404).json({ error: "Job not found" });
-    return;
-  }
   const isAdmin = await isAdminUser(userId);
-  if (existing.clientId !== profile.id && !isAdmin) {
-    res.status(403).json({ error: "Forbidden" });
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, params.data.id))
+      .for("update");
+
+    if (!existing) return { error: "not_found" as const };
+    if (existing.clientId !== profile.id && !isAdmin) return { error: "forbidden" as const };
+
+    const isContentUpdate = Object.keys(parsed.data).some((key) => key !== "status");
+    if (isContentUpdate) {
+      const [proposal] = await tx
+        .select({ id: proposalsTable.id })
+        .from(proposalsTable)
+        .where(eq(proposalsTable.jobId, existing.id))
+        .limit(1);
+      if (proposal) return { error: "has_proposals" as const };
+    }
+
+    if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+      if (parsed.data.status !== "closed" || existing.status !== "open") {
+        return { error: "invalid_status" as const };
+      }
+      const [acceptedProposal] = await tx
+        .select({ id: proposalsTable.id })
+        .from(proposalsTable)
+        .where(and(
+          eq(proposalsTable.jobId, existing.id),
+          eq(proposalsTable.status, "accepted"),
+        ))
+        .limit(1);
+      if (acceptedProposal) return { error: "accepted_proposal" as const };
+    }
+
+    const { deadline, ...jobFields } = parsed.data;
+    const updateValues: Partial<typeof jobsTable.$inferInsert> = {
+      ...jobFields,
+      updatedAt: new Date(),
+    };
+    if (deadline !== undefined) {
+      updateValues.deadline = deadline ? new Date(deadline) : null;
+    }
+
+    const [job] = await tx
+      .update(jobsTable)
+      .set(updateValues)
+      .where(eq(jobsTable.id, params.data.id))
+      .returning();
+
+    return { job };
+  });
+
+  if ("error" in result) {
+    if (result.error === "not_found") {
+      res.status(404).json({ error: "Job not found" });
+    } else if (result.error === "forbidden") {
+      res.status(403).json({ error: "Forbidden" });
+    } else if (result.error === "has_proposals") {
+      res.status(409).json({ error: "Jobs cannot be edited after a freelancer submits a proposal" });
+    } else if (result.error === "accepted_proposal") {
+      res.status(409).json({ error: "A job with an accepted freelancer cannot be closed as a listing" });
+    } else {
+      res.status(409).json({ error: "Project status is controlled by the hiring and payment workflow" });
+    }
     return;
   }
-  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
-    if (parsed.data.status !== "closed" || existing.status !== "open") {
-      res.status(409).json({ error: "Project status is controlled by the hiring and payment workflow" });
-      return;
-    }
-    const [acceptedProposal] = await db.select({ id: proposalsTable.id }).from(proposalsTable).where(and(
-      eq(proposalsTable.jobId, existing.id),
-      eq(proposalsTable.status, "accepted"),
-    )).limit(1);
-    if (acceptedProposal) {
-      res.status(409).json({ error: "A job with an accepted freelancer cannot be closed as a listing" });
-      return;
-    }
-  }
 
-  const [job] = await db
-    .update(jobsTable)
-    .set({
-      ...parsed.data,
-      deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(jobsTable.id, params.data.id))
-    .returning();
-
-  res.json({ ...job, clientName: profile.name, clientAvatarUrl: profile.avatarUrl });
+  res.json({ ...result.job, clientName: profile.name, clientAvatarUrl: profile.avatarUrl });
 });
 
 // DELETE /jobs/:id
@@ -311,22 +341,39 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existing] = await db
-    .select()
-    .from(jobsTable)
-    .where(eq(jobsTable.id, params.data.id));
-
-  if (!existing) {
-    res.status(404).json({ error: "Job not found" });
-    return;
-  }
   const isAdmin = await isAdminUser(userId);
-  if (existing.clientId !== profile.id && !isAdmin) {
-    res.status(403).json({ error: "Forbidden" });
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, params.data.id))
+      .for("update");
+
+    if (!existing) return { error: "not_found" as const };
+    if (existing.clientId !== profile.id && !isAdmin) return { error: "forbidden" as const };
+
+    const [proposal] = await tx
+      .select({ id: proposalsTable.id })
+      .from(proposalsTable)
+      .where(eq(proposalsTable.jobId, existing.id))
+      .limit(1);
+    if (proposal) return { error: "has_proposals" as const };
+
+    await tx.delete(jobsTable).where(eq(jobsTable.id, existing.id));
+    return { deleted: true as const };
+  });
+
+  if ("error" in result) {
+    if (result.error === "not_found") {
+      res.status(404).json({ error: "Job not found" });
+    } else if (result.error === "forbidden") {
+      res.status(403).json({ error: "Forbidden" });
+    } else {
+      res.status(409).json({ error: "Jobs cannot be deleted after a freelancer submits a proposal" });
+    }
     return;
   }
 
-  await db.delete(jobsTable).where(eq(jobsTable.id, params.data.id));
   res.sendStatus(204);
 });
 

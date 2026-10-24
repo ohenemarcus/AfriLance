@@ -1,6 +1,15 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { useCreateJob, getListJobsQueryKey, getListMyJobsQueryKey } from "@workspace/api-client-react";
+import { useEffect, useState } from "react";
+import { useLocation, useParams } from "wouter";
+import {
+  useCreateJob,
+  useGetJob,
+  useGetMyProfile,
+  useUpdateJob,
+  getGetJobQueryKey,
+  getGetMyProfileQueryKey,
+  getListJobsQueryKey,
+  getListMyJobsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const CATEGORIES = [
@@ -11,9 +20,24 @@ const CATEGORIES = [
 ];
 
 export default function PostJobPage() {
+  const { id } = useParams<{ id?: string }>();
+  const jobId = Number.parseInt(id ?? "", 10);
+  const isEditing = id !== undefined;
+  const isValidJobId = Number.isInteger(jobId) && jobId > 0;
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { mutate, isPending } = useCreateJob();
+  const { mutate: createJob, isPending: isCreating } = useCreateJob();
+  const { mutate: updateJob, isPending: isUpdating } = useUpdateJob();
+  const { data: job, isLoading: isLoadingJob } = useGetJob(jobId, {
+    query: { enabled: isEditing && isValidJobId, queryKey: getGetJobQueryKey(jobId) },
+  });
+  const { data: profile, isLoading: isLoadingProfile } = useGetMyProfile({
+    query: {
+      enabled: isEditing,
+      queryKey: getGetMyProfileQueryKey(),
+    },
+  });
+  const isPending = isCreating || isUpdating;
 
   const [form, setForm] = useState({
     title: "",
@@ -29,6 +53,23 @@ export default function PostJobPage() {
     deadline: "",
   });
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!job || !isEditing) return;
+    setForm({
+      title: job.title,
+      description: job.description,
+      category: job.category,
+      skills: job.skills,
+      newSkill: "",
+      budgetMin: job.budgetMin?.toString() ?? "",
+      budgetMax: job.budgetMax?.toString() ?? "",
+      budgetType: job.budgetType,
+      location: job.location ?? "",
+      remote: job.remote,
+      deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
+    });
+  }, [job, isEditing]);
 
   const addSkill = () => {
     const skill = form.newSkill.trim();
@@ -48,39 +89,74 @@ export default function PostJobPage() {
       return;
     }
     setError("");
-    mutate(
-      {
-        data: {
-          title: form.title.trim(),
-          description: form.description.trim(),
-          category: form.category,
-          skills: form.skills,
-          budgetMin: form.budgetMin ? parseFloat(form.budgetMin) : null,
-          budgetMax: form.budgetMax ? parseFloat(form.budgetMax) : null,
-          budgetType: form.budgetType,
-          location: form.location.trim() || null,
-          remote: form.remote,
-          deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
-        },
-      },
-      {
-        onSuccess: (job) => {
-          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListMyJobsQueryKey() });
-          setLocation(`/jobs/${job.id}`);
-        },
-        onError: (err: any) => {
-          setError(err?.data?.error ?? "Failed to post job. Please try again.");
-        },
-      },
-    );
+    const data = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      skills: form.skills,
+      budgetMin: form.budgetMin ? parseFloat(form.budgetMin) : null,
+      budgetMax: form.budgetMax ? parseFloat(form.budgetMax) : null,
+      budgetType: form.budgetType,
+      location: form.location.trim() || null,
+      remote: form.remote,
+      deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
+    };
+    const onSuccess = (savedJob: { id: number }) => {
+      queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListMyJobsQueryKey() });
+      if (isEditing) {
+        queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
+      }
+      setLocation(`/jobs/${savedJob.id}`);
+    };
+    const onError = (err: any) => {
+      setError(err?.data?.error ?? (isEditing ? "Failed to update job. Please try again." : "Failed to post job. Please try again."));
+    };
+
+    if (isEditing) {
+      updateJob({ id: jobId, data }, { onSuccess, onError });
+    } else {
+      createJob({ data }, { onSuccess, onError });
+    }
   };
+
+  if (isEditing && (isLoadingJob || isLoadingProfile)) {
+    return <div className="max-w-3xl mx-auto px-4 py-8 text-sm text-muted-foreground">Loading job...</div>;
+  }
+
+  if (isEditing && (!isValidJobId || !job)) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <p className="text-muted-foreground">Job not found.</p>
+        <button onClick={() => setLocation("/jobs")} className="mt-4 text-primary hover:underline text-sm">
+          Back to Jobs
+        </button>
+      </div>
+    );
+  }
+
+  if (isEditing && job && profile?.id !== job.clientId && profile?.role !== "admin") {
+    return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-muted-foreground">You are not allowed to edit this job.</div>;
+  }
+
+  if (isEditing && job && job.proposalCount > 0) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <p className="text-muted-foreground">This job can no longer be edited because it has received proposals.</p>
+        <button onClick={() => setLocation(`/jobs/${job.id}`)} className="mt-4 text-primary hover:underline text-sm">
+          Back to Job
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Post a Job</h1>
-        <p className="text-muted-foreground text-sm">Find the perfect freelancer for your project</p>
+        <h1 className="text-2xl font-bold text-foreground">{isEditing ? "Edit Job" : "Post a Job"}</h1>
+        <p className="text-muted-foreground text-sm">
+          {isEditing ? "Update the details freelancers will see" : "Find the perfect freelancer for your project"}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-8 space-y-6">
@@ -254,7 +330,7 @@ export default function PostJobPage() {
             disabled={isPending}
             className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {isPending ? "Posting..." : "Post Job"}
+            {isPending ? (isEditing ? "Saving..." : "Posting...") : (isEditing ? "Save Changes" : "Post Job")}
           </button>
         </div>
       </form>
