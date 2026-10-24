@@ -363,7 +363,7 @@ export const GetJobResponse = zod.object({
 
 
 /**
- * @summary Update a job
+ * @summary Update a job before proposals are received
  */
 export const UpdateJobParams = zod.object({
   "id": zod.coerce.number()
@@ -407,7 +407,7 @@ export const UpdateJobResponse = zod.object({
 
 
 /**
- * @summary Delete a job
+ * @summary Delete a job before proposals are received
  */
 export const DeleteJobParams = zod.object({
   "id": zod.coerce.number()

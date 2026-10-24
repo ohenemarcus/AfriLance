@@ -16,7 +16,7 @@ router.get("/config/public", (_req, res) => {
 let banksCache: { data: unknown; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-router.get("/payments/banks", async (_req, res): Promise<void> => {
+router.get("/payments/banks", async (req, res): Promise<void> => {
   try {
     if (banksCache && Date.now() - banksCache.fetchedAt < CACHE_TTL_MS) {
       res.json(banksCache.data);
@@ -44,7 +44,8 @@ router.get("/payments/banks", async (_req, res): Promise<void> => {
     const result = { banks };
     banksCache = { data: result, fetchedAt: Date.now() };
     res.json(result);
-  } catch {
+  } catch (err) {
+    req.log.error({ err }, "Could not fetch bank list from Paystack");
     res.status(502).json({ error: "Could not fetch bank list from Paystack" });
   }
 });
@@ -83,6 +84,7 @@ router.post("/payments/resolve-account", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Account not found" });
     }
   } catch (err: any) {
+    req.log.error({ err, bankCode }, "Could not resolve payout account with Paystack");
     const msg =
       err?.response?.data?.message ?? "Could not resolve account";
     res.status(422).json({ error: msg });

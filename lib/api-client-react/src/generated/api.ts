@@ -138,7 +138,7 @@ export const getHealthCheckQueryKey = () => {
     }
 
 
-export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -157,14 +157,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type HealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheck>>>
-export type HealthCheckQueryError = ErrorType<unknown>
+export type HealthCheckQueryError = ErrorType<void>
 
 
 /**
  * @summary Health check
  */
 
-export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<void>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -730,7 +730,7 @@ export const getUpdateJobUrl = (id: number,) => {
 }
 
 /**
- * @summary Update a job
+ * @summary Update a job before proposals are received
  */
 export const updateJob = async (id: number,
     updateJobBody: UpdateJobBody, options?: RequestInit): Promise<Job> => {
@@ -747,7 +747,7 @@ export const updateJob = async (id: number,
 
 
 
-export const getUpdateJobMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateJobMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateJob>>, TError,{id: number;data: BodyType<UpdateJobBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateJob>>, TError,{id: number;data: BodyType<UpdateJobBody>}, TContext> => {
 
@@ -776,12 +776,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateJobMutationResult = NonNullable<Awaited<ReturnType<typeof updateJob>>>
     export type UpdateJobMutationBody = BodyType<UpdateJobBody>
-    export type UpdateJobMutationError = ErrorType<unknown>
+    export type UpdateJobMutationError = ErrorType<void>
 
     /**
- * @summary Update a job
+ * @summary Update a job before proposals are received
  */
-export const useUpdateJob = <TError = ErrorType<unknown>,
+export const useUpdateJob = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateJob>>, TError,{id: number;data: BodyType<UpdateJobBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateJob>>,
@@ -801,7 +801,7 @@ export const getDeleteJobUrl = (id: number,) => {
 }
 
 /**
- * @summary Delete a job
+ * @summary Delete a job before proposals are received
  */
 export const deleteJob = async (id: number, options?: RequestInit): Promise<void> => {
 
@@ -817,7 +817,7 @@ export const deleteJob = async (id: number, options?: RequestInit): Promise<void
 
 
 
-export const getDeleteJobMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteJobMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: number}, TContext> => {
 
@@ -846,12 +846,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteJobMutationResult = NonNullable<Awaited<ReturnType<typeof deleteJob>>>
 
-    export type DeleteJobMutationError = ErrorType<unknown>
+    export type DeleteJobMutationError = ErrorType<void>
 
     /**
- * @summary Delete a job
+ * @summary Delete a job before proposals are received
  */
-export const useDeleteJob = <TError = ErrorType<unknown>,
+export const useDeleteJob = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteJob>>,

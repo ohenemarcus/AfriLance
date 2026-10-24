@@ -27,13 +27,27 @@ declare global {
 
 function usePaystackPublicKey() {
   const [key, setKey] = useState("");
+  const [error, setError] = useState("");
   useEffect(() => {
-    fetch("/api/config/public")
-      .then((r) => r.json())
-      .then((d) => setKey(d.paystackPublicKey ?? ""))
-      .catch(() => {});
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/config/public");
+        if (!response.ok) throw new Error(`Payment configuration request failed (${response.status})`);
+        const config = await response.json() as { paystackPublicKey?: string };
+        if (!cancelled) {
+          setKey(config.paystackPublicKey ?? "");
+          setError(config.paystackPublicKey ? "" : "Paystack is not configured. Please contact support.");
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Could not load payment configuration. Please refresh and try again.");
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
-  return key;
+  return { key, error };
 }
 
 function usePaystackScript() {
@@ -173,7 +187,7 @@ export default function PaymentsPage() {
   const queryClient = useQueryClient();
   const { user } = useUser();
   const { getToken } = useAuth();
-  const paystackPublicKey = usePaystackPublicKey();
+  const { key: paystackPublicKey, error: paystackConfigError } = usePaystackPublicKey();
   const paystackReady = usePaystackScript();
 
   const { data: profile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey() } });
@@ -208,6 +222,8 @@ export default function PaymentsPage() {
   const [disputeSaving, setDisputeSaving] = useState(false);
   const [historyPayment, setHistoryPayment] = useState<number | null>(null);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  const [statusHistoryError, setStatusHistoryError] = useState("");
+  const [statusHistoryLoading, setStatusHistoryLoading] = useState(false);
   const [myDisputes, setMyDisputes] = useState<Array<{
     id: number;
     status: string;
@@ -304,7 +320,7 @@ export default function PaymentsPage() {
       return;
     }
     if (!paystackReady || !paystackPublicKey) {
-      setCreateError("Payment system not ready. Please refresh and try again.");
+      setCreateError(paystackConfigError || "Payment system not ready. Please refresh and try again.");
       return;
     }
     const clientEmail = user?.primaryEmailAddress?.emailAddress ?? "";
@@ -459,12 +475,20 @@ export default function PaymentsPage() {
   };
 
   const handleHistory = async (paymentId: number) => {
-    if (historyPayment === paymentId) { setHistoryPayment(null); return; }
+    if (historyPayment === paymentId) { setHistoryPayment(null); setStatusHistoryError(""); return; }
+    setStatusHistoryError("");
+    setStatusHistoryLoading(true);
     try {
       const body = await apiRequest(`/api/payments/${paymentId}/status-history`);
       setStatusHistory(body.history ?? []);
       setHistoryPayment(paymentId);
-    } catch { setStatusHistory([]); }
+    } catch (cause) {
+      setStatusHistory([]);
+      setHistoryPayment(paymentId);
+      setStatusHistoryError(cause instanceof Error ? cause.message : "Could not load payment status history.");
+    } finally {
+      setStatusHistoryLoading(false);
+    }
   };
 
   return (
@@ -773,7 +797,11 @@ export default function PaymentsPage() {
               </div>
               {historyPayment === p.id && (
                 <div className="mt-3 border-t border-border pt-3 space-y-2">
-                  {statusHistory.length ? statusHistory.map((item) => (
+                  {statusHistoryError ? (
+                    <p role="alert" className="text-xs text-destructive">{statusHistoryError}</p>
+                  ) : statusHistoryLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading status history...</p>
+                  ) : statusHistory.length ? statusHistory.map((item) => (
                     <div key={item.id} className="flex items-center justify-between text-xs">
                       <span className="font-medium capitalize text-foreground">{item.status.replaceAll("_", " ")}</span>
                       <span className="text-muted-foreground">{item.note ?? ""} · {formatDate(item.createdAt)}</span>

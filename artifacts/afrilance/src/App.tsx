@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser, useAuth } from "@clerk/react"; // 👈 Added useAuth here
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -17,6 +17,7 @@ import LandingPage from "@/pages/landing";
 import OnboardingPage from "@/pages/onboarding";
 import DashboardPage from "@/pages/dashboard";
 import JobsPage from "@/pages/jobs";
+import MyJobsPage from "@/pages/my-jobs";
 import JobDetailPage from "@/pages/job-detail";
 import PostJobPage from "@/pages/post-job";
 import FreelancersPage from "@/pages/freelancers";
@@ -34,6 +35,42 @@ import GuidePage from "@/pages/guide";
 
 const LEGAL_SIGNUP_CONSENT_KEY = "afrilance-legal-consent-pending";
 const legalAcceptanceUrl = `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "")}/api/legal/acceptance`;
+
+class AppErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Unhandled application rendering error", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+          <h1 className="text-xl font-bold text-foreground">Something went wrong</h1>
+          <p className="max-w-md text-sm text-muted-foreground">
+            The page encountered an unexpected error. Reload to try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            Reload page
+          </button>
+        </main>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 
 // Fallback directly to the environment variable if dynamic parsing fails
@@ -468,6 +505,9 @@ function Router() {
       <Route path="/jobs/post">
         <AuthenticatedRoute><PostJobPage /></AuthenticatedRoute>
       </Route>
+      <Route path="/jobs/my">
+        <AuthenticatedRoute><Layout><MyJobsPage /></Layout></AuthenticatedRoute>
+      </Route>
       <Route path="/jobs/:id/edit">
         <AuthenticatedRoute><PostJobPage /></AuthenticatedRoute>
       </Route>
@@ -541,9 +581,11 @@ function ClerkProviderWithRoutes() {
         {/* 👇 INJECTED HERE: Resolves 401s by feeding customFetch your Clerk key */}
         <ClerkTokenBridge /> 
         <TooltipProvider>
-          <LegalAcceptanceBoundary>
-            <Router />
-          </LegalAcceptanceBoundary>
+          <AppErrorBoundary>
+            <LegalAcceptanceBoundary>
+              <Router />
+            </LegalAcceptanceBoundary>
+          </AppErrorBoundary>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

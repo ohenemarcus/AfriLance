@@ -23,6 +23,7 @@ import {
   AdminFlagJobBody,
 } from "@workspace/api-zod";
 import { withoutPrivateNameFields } from "../lib/profilePrivacy";
+import { logger } from "../lib/logger";
 
 const AdminVerifyUserParams = z.object({ id: z.coerce.number().int() });
 const AdminVerifyUserBody = z.object({
@@ -66,7 +67,17 @@ async function insertAuditLog(params: {
   entityName?: string | null;
   details?: string;
 }) {
-  await db.insert(auditLogsTable).values(params).catch(() => {});
+  try {
+    await db.insert(auditLogsTable).values(params);
+  } catch (err) {
+    logger.error({
+      err,
+      adminId: params.adminId,
+      action: params.action,
+      entityType: params.entityType,
+      entityId: params.entityId,
+    }, "Failed to write admin audit log");
+  }
 }
 
 // GET /admin/users

@@ -1,7 +1,4 @@
 import express, { type Express } from "express";
-import fs from "fs";
-import os from "os";
-import path from "path";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
@@ -20,32 +17,6 @@ import paymentsWebhookRouter from "./routes/payments-webhook";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
-
-// Debug: append basic request info to a file for troubleshooting 400 responses
-try {
-  const debugLogPath = path.join(os.tmpdir(), "afrilance-request-debug.log");
-  app.use((req, _res, next) => {
-    try {
-      const entry = {
-        ts: new Date().toISOString(),
-        method: req.method,
-        path: req.path,
-        headers: {
-          // redact full authorization value but keep presence/length for debugging
-          authorization: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 64)}...` : null,
-          host: req.headers.host,
-          origin: req.headers.origin,
-        },
-      };
-      fs.appendFileSync(debugLogPath, JSON.stringify(entry) + "\n");
-    } catch (e) {
-      /* ignore logging errors */
-    }
-    next();
-  });
-} catch (e) {
-  // ignore
-}
 
 app.use(
   pinoHttp({
@@ -89,26 +60,32 @@ app.use(
   })),
 );
 
-app.use((req, _res, next) => {
-  const authHeader = req.headers.authorization;
-  req.log.info(
-    {
-      path: req.path,
-      authHeader: authHeader ? `${authHeader.slice(0, 20)}...` : null,
-    },
-    "auth header debug",
-  );
-
-  if (req.headers.authorization?.startsWith("Bearer ")) {
-    req.headers.authorization = req.headers.authorization;
-  }
-  next();
-});
-
 app.use("/api", legalRouter);
 app.use("/api", supportRouter);
 app.use("/api", requireCurrentLegalAcceptance);
 app.use("/api", publicRouter);
 app.use("/api", router);
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "API endpoint not found" });
+});
+
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
+  const status =
+    typeof err === "object" && err !== null && "status" in err &&
+    typeof err.status === "number" && err.status >= 400 && err.status < 500
+      ? err.status
+      : 500;
+
+  req.log.error({ err, method: req.method, path: req.path, status }, "Unhandled request error");
+  res.status(status).json({
+    error: status === 500 ? "Internal server error" : "Invalid request",
+  });
+});
 
 export default app;
