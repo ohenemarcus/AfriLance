@@ -12,23 +12,10 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
-    // Replit plugins removed for local development and Vercel deployment
-    /*
-    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-runtime-error-modal").then((m) => m.default()),
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({ root: path.resolve(import.meta.dirname, "..") }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) => m.devBanner()),
-        ]
-      : []),
-    */
   ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
     dedupe: ["react", "react-dom"],
   },
@@ -45,14 +32,12 @@ export default defineConfig({
     origin: `http://localhost:${port}`,
     allowedHosts: true,
     fs: { strict: true },
-    proxy: process.env.REPL_ID
-      ? undefined
-      : {
-          "/api": {
-            target: `http://localhost:${apiPort}`,
-            changeOrigin: true,
-          },
+    proxy: {
+        "/api": {
+          target: `http://localhost:${apiPort}`,
+          changeOrigin: true,
         },
+    },
   },
   preview: {
     port,
