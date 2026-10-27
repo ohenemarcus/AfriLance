@@ -38,6 +38,10 @@ app.use(
   }),
 );
 
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", service: "afrilance-api" });
+});
+
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ credentials: true, origin: true }));
