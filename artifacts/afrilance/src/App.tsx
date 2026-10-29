@@ -246,14 +246,16 @@ function SignUpPage() {
           </button>
           {accepted && <p role="status" className="mt-2 text-xs text-green-700 dark:text-green-400">Policies accepted. You can continue with sign up.</p>}
         </section>
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-          <p className="font-semibold">Password requirements</p>
-          <ul className="mt-2 space-y-1 text-muted-foreground">
-            <li>Use at least one capital letter</li>
-            <li>Use at least one number</li>
-            <li>Use at least one special character, such as !, @, or #</li>
-          </ul>
-        </div>
+        {accepted && (
+          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
+            <p className="font-semibold">Password requirements</p>
+            <ul className="mt-2 space-y-1 text-muted-foreground">
+              <li>Use at least one capital letter</li>
+              <li>Use at least one number</li>
+              <li>Use at least one special character, such as !, @, or #</li>
+            </ul>
+          </div>
+        )}
         {accepted ? (
           <SignUp
             routing="path"
