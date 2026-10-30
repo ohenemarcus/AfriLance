@@ -167,14 +167,19 @@ router.post("/payments/payout-method/verify", async (req, res): Promise<void> =>
 
   try {
     const accountNumber = decryptPayoutAccountNumber(method.encryptedAccountNumber);
-    const accountName = await resolveBankAccount({
-      accountNumber,
-      bankCode: method.bankCode,
-    });
+    const payoutChannel = method.channel === "mobile_money" ? "mobile_money" : "bank";
+    const accountName = payoutChannel === "mobile_money"
+      ? profile.name
+      : await resolveBankAccount({
+          accountNumber,
+          bankCode: method.bankCode,
+        });
     const recipientCode = await createTransferRecipient({
       name: accountName,
       accountNumber,
       bankCode: method.bankCode,
+      channel: payoutChannel,
+      provider: method.bankName,
     });
     const [verifiedMethod] = await db.update(payoutMethodsTable)
       .set({ recipientCode, updatedAt: new Date() })

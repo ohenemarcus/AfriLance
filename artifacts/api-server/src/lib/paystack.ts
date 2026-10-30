@@ -75,18 +75,47 @@ export async function refundTransaction(params: { reference: string; amount?: nu
   });
 }
 
+function normalizeGhanaPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return value;
+  if (digits.startsWith("233")) return digits;
+  if (digits.startsWith("0")) return `233${digits.slice(1)}`;
+  return digits.length === 9 ? `233${digits}` : digits;
+}
+
+function normalizeMobileMoneyProvider(value: string): string {
+  const provider = value.toLowerCase();
+  if (provider.includes("mtn")) return "MTN";
+  if (provider.includes("vodafone")) return "Vodafone";
+  if (provider.includes("airteltigo") || provider.includes("tigo")) return "AirtelTigo";
+  if (provider.includes("telecel")) return "Telecel";
+  return value.trim();
+}
+
 export async function createTransferRecipient(params: {
   name: string;
   accountNumber: string;
   bankCode: string;
+  channel?: "bank" | "mobile_money";
+  provider?: string;
 }): Promise<string> {
-  const { data } = await paystackApi.post("/transferrecipient", {
-    type: "nuban",
-    name: params.name,
-    account_number: params.accountNumber,
-    bank_code: params.bankCode,
-    currency: "GHS",
-  });
+  const payload = params.channel === "mobile_money"
+    ? {
+        type: "mobile_money",
+        name: params.name,
+        phone: normalizeGhanaPhoneNumber(params.accountNumber),
+        provider: normalizeMobileMoneyProvider(params.provider ?? params.bankCode),
+        currency: "GHS",
+      }
+    : {
+        type: "nuban",
+        name: params.name,
+        account_number: params.accountNumber,
+        bank_code: params.bankCode,
+        currency: "GHS",
+      };
+
+  const { data } = await paystackApi.post("/transferrecipient", payload);
   return data.data.recipient_code;
 }
 
