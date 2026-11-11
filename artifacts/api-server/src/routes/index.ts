@@ -13,6 +13,7 @@ import paymentsRouter from "./payments";
 import adminRouter from "./admin";
 import disputesRouter from "./disputes";
 import jobWorkRouter from "./job-work";
+import servicesRouter from "./services";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(paymentsRouter);
 router.use(adminRouter);
 router.use(disputesRouter);
 router.use(jobWorkRouter);
+router.use(servicesRouter);
 
 export default router;

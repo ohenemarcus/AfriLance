@@ -12,6 +12,7 @@ import {
   disputesTable,
   paymentsTable,
   profilesTable,
+  servicePortfolioImagesTable,
 } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { isAdminUser } from "../lib/adminAccess";
@@ -138,10 +139,13 @@ router.get("/storage/r2-objects/:objectId", async (req: Request, res: Response) 
     const [owner] = await db.select({ userId: profilesTable.userId, role: profilesTable.role, avatarUrl: profilesTable.avatarUrl, resumeUrl: profilesTable.resumeUrl, verificationDocUrl: profilesTable.verificationDocUrl })
       .from(profilesTable)
       .where(or(eq(profilesTable.avatarUrl, objectPath), eq(profilesTable.verificationDocUrl, objectPath), eq(profilesTable.resumeUrl, objectPath)));
+    const [serviceImage] = await db.select({ id: servicePortfolioImagesTable.id })
+      .from(servicePortfolioImagesTable)
+      .where(eq(servicePortfolioImagesTable.imageUrl, objectPath));
     const [evidence] = await db.select({ disputeId: disputeEvidenceTable.disputeId })
       .from(disputeEvidenceTable)
       .where(eq(disputeEvidenceTable.objectPath, objectPath));
-    if (!owner && !evidence) {
+    if (!owner && !serviceImage && !evidence) {
       res.status(404).json({ error: "File not found" });
       return;
     }

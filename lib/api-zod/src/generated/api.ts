@@ -270,6 +270,185 @@ export const ListFreelancersResponse = zod.object({
 
 
 /**
+ * @summary List local service providers
+ */
+export const listServicesQueryLimitDefault = 20;
+export const listServicesQueryLimitMax = 50;
+
+export const listServicesQueryOffsetDefault = 0;
+export const listServicesQueryOffsetMin = 0;
+
+
+
+export const ListServicesQueryParams = zod.object({
+  "query": zod.coerce.string().optional(),
+  "category": zod.coerce.string().optional(),
+  "region": zod.coerce.string().optional(),
+  "city": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().min(1).max(listServicesQueryLimitMax).default(listServicesQueryLimitDefault),
+  "offset": zod.coerce.number().min(listServicesQueryOffsetMin).default(listServicesQueryOffsetDefault)
+})
+
+export const ListServicesResponse = zod.object({
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "description": zod.string(),
+  "pricingType": zod.enum(['hourly', 'fixed', 'contact_for_quote']),
+  "baseRate": zod.number().nullish(),
+  "region": zod.string(),
+  "city": zod.string(),
+  "phoneNumber": zod.string(),
+  "whatsappNumber": zod.string(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "providerName": zod.string(),
+  "providerAvatarUrl": zod.string().nullish(),
+  "portfolioImages": zod.array(zod.object({
+  "id": zod.number(),
+  "serviceId": zod.number(),
+  "imageUrl": zod.string(),
+  "caption": zod.string().nullish()
+}))
+})),
+  "total": zod.number(),
+  "limit": zod.number(),
+  "offset": zod.number()
+})
+
+
+/**
+ * @summary Create a local service listing
+ */
+export const createServiceBodyTitleMin = 2;
+export const createServiceBodyTitleMax = 120;
+
+export const createServiceBodyCategoryMax = 80;
+
+export const createServiceBodyDescriptionMin = 10;
+export const createServiceBodyDescriptionMax = 5000;
+
+export const createServiceBodyBaseRateExclusiveMin = 0;
+
+export const createServiceBodyRegionMax = 120;
+
+export const createServiceBodyCityMax = 120;
+
+export const createServiceBodyPhoneNumberMin = 5;
+export const createServiceBodyPhoneNumberMax = 32;
+
+export const createServiceBodyWhatsappNumberMin = 5;
+export const createServiceBodyWhatsappNumberMax = 32;
+
+export const createServiceBodyPortfolioImagesItemCaptionMax = 240;
+
+export const createServiceBodyPortfolioImagesMax = 10;
+
+
+
+export const CreateServiceBody = zod.object({
+  "title": zod.string().min(createServiceBodyTitleMin).max(createServiceBodyTitleMax),
+  "category": zod.string().min(1).max(createServiceBodyCategoryMax),
+  "description": zod.string().min(createServiceBodyDescriptionMin).max(createServiceBodyDescriptionMax),
+  "pricingType": zod.enum(['hourly', 'fixed', 'contact_for_quote']),
+  "baseRate": zod.number().gt(createServiceBodyBaseRateExclusiveMin).nullish(),
+  "region": zod.string().min(1).max(createServiceBodyRegionMax),
+  "city": zod.string().min(1).max(createServiceBodyCityMax),
+  "phoneNumber": zod.string().min(createServiceBodyPhoneNumberMin).max(createServiceBodyPhoneNumberMax),
+  "whatsappNumber": zod.string().min(createServiceBodyWhatsappNumberMin).max(createServiceBodyWhatsappNumberMax),
+  "portfolioImages": zod.array(zod.object({
+  "imageUrl": zod.string(),
+  "caption": zod.string().max(createServiceBodyPortfolioImagesItemCaptionMax).nullish()
+})).min(1).max(createServiceBodyPortfolioImagesMax).optional()
+})
+
+export const CreateServiceResponse = zod.void()
+
+
+/**
+ * @summary List the current provider's service listings
+ */
+export const ListMyServicesResponse = zod.object({
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "description": zod.string(),
+  "pricingType": zod.enum(['hourly', 'fixed', 'contact_for_quote']),
+  "baseRate": zod.number().nullish(),
+  "region": zod.string(),
+  "city": zod.string(),
+  "phoneNumber": zod.string(),
+  "whatsappNumber": zod.string(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "providerName": zod.string(),
+  "providerAvatarUrl": zod.string().nullish(),
+  "portfolioImages": zod.array(zod.object({
+  "id": zod.number(),
+  "serviceId": zod.number(),
+  "imageUrl": zod.string(),
+  "caption": zod.string().nullish()
+}))
+})),
+  "total": zod.number(),
+  "limit": zod.number(),
+  "offset": zod.number()
+})
+
+
+/**
+ * @summary Get a local service listing
+ */
+
+
+
+export const GetServiceParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const GetServiceResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "description": zod.string(),
+  "pricingType": zod.enum(['hourly', 'fixed', 'contact_for_quote']),
+  "baseRate": zod.number().nullish(),
+  "region": zod.string(),
+  "city": zod.string(),
+  "phoneNumber": zod.string(),
+  "whatsappNumber": zod.string(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "providerName": zod.string(),
+  "providerAvatarUrl": zod.string().nullish(),
+  "portfolioImages": zod.array(zod.object({
+  "id": zod.number(),
+  "serviceId": zod.number(),
+  "imageUrl": zod.string(),
+  "caption": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Delete an owned service listing
+ */
+
+
+
+export const DeleteServiceParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const DeleteServiceResponse = zod.void()
+
+
+/**
  * @summary List job listings with filters
  */
 export const ListJobsQueryParams = zod.object({
@@ -1372,7 +1551,7 @@ export const AdminChangeUserRoleParams = zod.object({
 })
 
 export const AdminChangeUserRoleBody = zod.object({
-  "role": zod.enum(['freelancer', 'client', 'moderator'])
+  "role": zod.enum(['freelancer', 'client', 'service_provider', 'moderator'])
 })
 
 export const AdminChangeUserRoleResponse = zod.object({

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { useAuth } from "@clerk/react";
 import {
   useGetMyProfile,
   useGetFreelancerDashboard,
@@ -14,6 +15,89 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBudget, formatRelative, formatCurrency } from "@/lib/format";
+import { serviceImageUrl, serviceRequest, servicesApiUrl, type ServiceListing } from "@/lib/services";
+
+function MyServiceListings() {
+  const { getToken } = useAuth();
+  const [services, setServices] = useState<ServiceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch(servicesApiUrl("/api/services/my"), {
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(body?.error || `Could not load your services (${response.status})`);
+        }
+        const result = await response.json() as { services: ServiceListing[] };
+        if (!controller.signal.aborted) setServices(result.services);
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load your services");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [getToken]);
+
+  const deleteService = async (service: ServiceListing) => {
+    if (!window.confirm(`Delete "${service.title}"? This cannot be undone.`)) return;
+    try {
+      const token = await getToken();
+      await serviceRequest(`/api/services/${service.id}`, token, { method: "DELETE" });
+      setServices((current) => current.filter((item) => item.id !== service.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not delete service");
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Your service listings</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Manage and share the services you offer.</p>
+        </div>
+        <Link to="/services/new" className="text-sm font-semibold text-primary hover:underline">Add a service</Link>
+      </div>
+      {error && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+      {loading ? (
+        <p className="py-8 text-sm text-muted-foreground">Loading your listings…</p>
+      ) : services.length ? (
+        <ul className="mt-5 divide-y divide-border">
+          {services.map((service) => (
+            <li key={service.id} className="flex items-center gap-4 py-4">
+              <Link to={`/services/${service.id}`} className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+                {service.portfolioImages[0] ? <img src={serviceImageUrl(service.portfolioImages[0].imageUrl)} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-xl text-muted-foreground">✦</span>}
+              </Link>
+              <div className="min-w-0 flex-1">
+                <Link to={`/services/${service.id}`} className="font-semibold text-foreground hover:text-primary">{service.title}</Link>
+                <p className="mt-1 text-sm text-muted-foreground">{service.category} · {service.city}, {service.region}</p>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">{service.isVerified ? "Verified" : "Not verified"}</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Link to={`/services/${service.id}`} className="rounded-lg border border-border px-3 py-2 text-center text-xs font-semibold text-foreground hover:bg-muted">View</Link>
+                <button type="button" onClick={() => void deleteService(service)} className="rounded-lg border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/5">Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-5 rounded-xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">You have not published a service yet.</p>
+          <Link to="/services/new" className="mt-3 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Create your first listing</Link>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function StatCard({ label, value, className }: { label: string; value: string | number; className?: string }) {
   return (
@@ -477,12 +561,32 @@ export default function DashboardPage() {
           Welcome back, {profile?.name?.split(" ")[0] ?? "there"}
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          {profile?.role === "freelancer" ? "Find your next opportunity" : "Manage your projects"}
+          {profile?.role === "freelancer"
+            ? "Find your next opportunity"
+            : profile?.role === "service_provider"
+              ? "Manage your local services"
+              : "Manage your projects"}
         </p>
       </div>
 
       {profile?.role === "freelancer" && <FreelancerDashboard profile={profile} />}
       {profile?.role === "client" && <ClientDashboard profile={profile} />}
+      {profile?.role === "service_provider" && (
+        <>
+          <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">Local services</p>
+              <h2 className="mt-2 text-2xl font-bold text-foreground">Grow your local service business</h2>
+              <p className="mt-2 text-muted-foreground">Create service listings with your location, contact details, pricing, and portfolio so nearby customers can find you.</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to="/services/new" className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">Create a service listing</Link>
+                <Link to="/services" className="rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted">Browse local services</Link>
+              </div>
+            </div>
+          </section>
+          <MyServiceListings />
+        </>
+      )}
       {profile?.role === "admin" && (
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <p className="text-muted-foreground mb-4">You have admin access to this platform.</p>

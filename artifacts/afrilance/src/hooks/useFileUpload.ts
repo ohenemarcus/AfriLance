@@ -55,7 +55,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         });
         setProgress(40);
 
-        const putRes = await fetch(uploadURL, {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+        const uploadTarget = new URL(uploadURL, apiBase).toString();
+        const putRes = await fetch(uploadTarget, {
           method: "PUT",
           body: file,
           headers: { "Content-Type": file.type || "application/octet-stream" },

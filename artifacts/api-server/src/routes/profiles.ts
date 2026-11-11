@@ -110,7 +110,9 @@ router.put("/profiles/me", async (req, res): Promise<void> => {
       ? "admin"
       : existing[0]?.role === "moderator"
         ? "moderator"
-        : parsed.data.role === "client" || parsed.data.role === "freelancer"
+        : parsed.data.role === "client" ||
+            parsed.data.role === "freelancer" ||
+            parsed.data.role === "service_provider"
           ? parsed.data.role
           : "freelancer";
 
@@ -180,6 +182,10 @@ router.put("/profiles/me", async (req, res): Promise<void> => {
         .values({ userId, ...parsed.data, name: requestedName, legalName, role })
         .returning();
     }
+
+    await clerkClient.users.updateUserMetadata(userId, {
+      publicMetadata: { role },
+    });
 
     res.json({ ...profile, legalName: profile.legalName ?? legalName });
   } catch (err) {

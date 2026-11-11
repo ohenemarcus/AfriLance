@@ -652,6 +652,7 @@ export type AdminChangeUserRoleBodyRole = typeof AdminChangeUserRoleBodyRole[key
 export const AdminChangeUserRoleBodyRole = {
   freelancer: 'freelancer',
   client: 'client',
+  service_provider: 'service_provider',
   moderator: 'moderator',
 } as const;
 
@@ -727,6 +728,118 @@ export interface AuditLogListResponse {
   total: number;
 }
 
+export interface ServicePortfolioImage {
+  id: number;
+  serviceId: number;
+  imageUrl: string;
+  /** @nullable */
+  caption?: string | null;
+}
+
+export type ServicePricingType = typeof ServicePricingType[keyof typeof ServicePricingType];
+
+
+export const ServicePricingType = {
+  hourly: 'hourly',
+  fixed: 'fixed',
+  contact_for_quote: 'contact_for_quote',
+} as const;
+
+export interface Service {
+  id: number;
+  userId: string;
+  title: string;
+  category: string;
+  description: string;
+  pricingType: ServicePricingType;
+  /** @nullable */
+  baseRate?: number | null;
+  region: string;
+  city: string;
+  phoneNumber: string;
+  whatsappNumber: string;
+  isVerified: boolean;
+  createdAt: string;
+  providerName: string;
+  /** @nullable */
+  providerAvatarUrl?: string | null;
+  portfolioImages: ServicePortfolioImage[];
+}
+
+export interface ServiceListResponse {
+  services: Service[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export type CreateServiceBodyPricingType = typeof CreateServiceBodyPricingType[keyof typeof CreateServiceBodyPricingType];
+
+
+export const CreateServiceBodyPricingType = {
+  hourly: 'hourly',
+  fixed: 'fixed',
+  contact_for_quote: 'contact_for_quote',
+} as const;
+
+export type CreateServiceBodyPortfolioImagesItem = {
+  imageUrl: string;
+  /**
+     * @maxLength 240
+     * @nullable
+     */
+  caption?: string | null;
+};
+
+export interface CreateServiceBody {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  category: string;
+  /**
+     * @minLength 10
+     * @maxLength 5000
+     */
+  description: string;
+  pricingType: CreateServiceBodyPricingType;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  baseRate?: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  region: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  city: string;
+  /**
+     * @minLength 5
+     * @maxLength 32
+     */
+  phoneNumber: string;
+  /**
+     * @minLength 5
+     * @maxLength 32
+     */
+  whatsappNumber: string;
+  /**
+     * @minItems 1
+     * @maxItems 10
+     */
+  portfolioImages?: CreateServiceBodyPortfolioImagesItem[];
+}
+
 export type ListFreelancersParams = {
 category?: string;
 skill?: string;
@@ -739,6 +852,26 @@ search?: string;
 featured?: boolean;
 limit?: number;
 offset?: number;
+};
+
+export type ListServicesParams = {
+query?: string;
+category?: string;
+region?: string;
+city?: string;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: number;
+};
+
+export type CreateService201 = {
+  service: Service;
 };
 
 export type ListJobsParams = {

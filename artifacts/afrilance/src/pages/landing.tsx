@@ -1,10 +1,13 @@
-import { Link } from "wouter";
-import { BriefcaseBusiness, CreditCard, UsersRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { BriefcaseBusiness, CreditCard, MapPin, Search, UsersRound } from "lucide-react";
 import { useListJobs, useListFreelancers } from "@workspace/api-client-react";
 import { SkillBadge } from "@/components/SkillBadge";
+import { ServiceCard } from "@/components/ServiceCard";
 import { StarRating } from "@/components/StarRating";
 import { UserAvatar } from "@/components/UserAvatar";
 import { formatBudget, formatRelative } from "@/lib/format";
+import { servicesApiUrl, type ServiceListing } from "@/lib/services";
 
 const FEATURED_CATEGORIES = [
   {
@@ -159,6 +162,14 @@ const PREVIEW_JOBS = [
 ];
 
 export default function LandingPage() {
+  const [, setLocation] = useLocation();
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [serviceCity, setServiceCity] = useState("");
+  const [serviceRegion, setServiceRegion] = useState("");
+  const [featuredServices, setFeaturedServices] = useState<ServiceListing[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [serviceLoadError, setServiceLoadError] = useState("");
+  const servicesCarousel = useRef<HTMLDivElement>(null);
   const { data: jobsData } = useListJobs({ limit: 4 });
   const { data: freelancersData } = useListFreelancers({
     featured: true,
@@ -193,6 +204,34 @@ export default function LandingPage() {
     ? PREVIEW_FREELANCERS
     : liveFreelancers;
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(servicesApiUrl("/api/services?limit=8"), { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Could not load local services (${response.status})`);
+        return response.json() as Promise<{ services: ServiceListing[] }>;
+      })
+      .then((result) => setFeaturedServices(result.services))
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          setServiceLoadError(cause instanceof Error ? cause.message : "Could not load local services");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setServicesLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
+  const searchServices = (event: React.FormEvent) => {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (serviceQuery.trim()) params.set("query", serviceQuery.trim());
+    if (serviceCity.trim()) params.set("city", serviceCity.trim());
+    if (serviceRegion.trim()) params.set("region", serviceRegion.trim());
+    setLocation(`/services${params.size ? `?${params}` : ""}`);
+  };
+
   return (
     <div>
       {/* Hero */}
@@ -215,6 +254,24 @@ export default function LandingPage() {
               Explore talent and freelance opportunities through one marketplace
               built for African clients and professionals.
             </p>
+            <form onSubmit={searchServices} className="mb-5 grid gap-2 rounded-2xl bg-background p-2 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto]">
+              <label className="relative">
+                <span className="sr-only">Service or skill</span>
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input value={serviceQuery} onChange={(event) => setServiceQuery(event.target.value)} placeholder="Skill or service" className="w-full rounded-xl bg-transparent py-3 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+              </label>
+              <label className="relative">
+                <span className="sr-only">City</span>
+                <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input value={serviceCity} onChange={(event) => setServiceCity(event.target.value)} placeholder="City" className="w-full rounded-xl bg-transparent py-3 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+              </label>
+              <label className="relative">
+                <span className="sr-only">Region</span>
+                <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input value={serviceRegion} onChange={(event) => setServiceRegion(event.target.value)} placeholder="Region" className="w-full rounded-xl bg-transparent py-3 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+              </label>
+              <button type="submit" className="rounded-xl bg-secondary px-5 py-3 text-sm font-bold text-primary hover:opacity-90">Search services</button>
+            </form>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 to="/jobs"
@@ -226,7 +283,13 @@ export default function LandingPage() {
                 to="/freelancers"
                 className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/30 text-primary-foreground font-semibold text-base hover:bg-primary-foreground/20 transition-colors"
               >
-                Hire Talent
+                Find Talent
+              </Link>
+              <Link
+                to="/services"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-primary-foreground/30 text-primary-foreground font-semibold text-base hover:bg-primary-foreground/10 transition-colors"
+              >
+                Local Services
               </Link>
             </div>
             <div className="mt-10 grid max-w-3xl grid-cols-1 gap-4 border-t border-primary-foreground/20 pt-6 sm:grid-cols-3 sm:gap-6">
@@ -566,6 +629,38 @@ export default function LandingPage() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="overflow-hidden bg-muted/30 py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-secondary-foreground">Skilled hands, nearby</p>
+              <h2 className="mt-2 text-3xl font-bold text-foreground">Featured Local Artisans &amp; Skilled Service Providers</h2>
+              <p className="mt-2 text-muted-foreground">Meet professionals ready to help in your community.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" aria-label="Scroll featured services left" onClick={() => servicesCarousel.current?.scrollBy({ left: -360, behavior: "smooth" })} className="rounded-full border border-border bg-card p-3 text-foreground hover:border-primary"><span aria-hidden="true">←</span></button>
+              <button type="button" aria-label="Scroll featured services right" onClick={() => servicesCarousel.current?.scrollBy({ left: 360, behavior: "smooth" })} className="rounded-full border border-border bg-card p-3 text-foreground hover:border-primary"><span aria-hidden="true">→</span></button>
+              <Link to="/services" className="hidden text-sm font-semibold text-primary hover:underline sm:inline">Browse all services</Link>
+            </div>
+          </div>
+          {serviceLoadError ? (
+            <p role="status" className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{serviceLoadError}</p>
+          ) : servicesLoading ? (
+            <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">Loading featured local services…</p>
+          ) : featuredServices.length ? (
+            <div ref={servicesCarousel} className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-3">
+              {featuredServices.map((service) => <div key={service.id} className="w-[min(85vw,340px)] shrink-0 snap-start"><ServiceCard service={service} /></div>)}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+              <p className="text-muted-foreground">Local artisans and service providers will appear here as they join.</p>
+              <Link to="/services" className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">Explore local services</Link>
+            </div>
+          )}
         </div>
       </section>
 

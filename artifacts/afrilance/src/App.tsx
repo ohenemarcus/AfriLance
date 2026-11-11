@@ -32,6 +32,9 @@ import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import SupportPage from "@/pages/support";
 import GuidePage from "@/pages/guide";
+import ServicesPage from "@/pages/services";
+import ServiceDetailPage from "@/pages/service-detail";
+import NewServicePage from "@/pages/new-service";
 
 const LEGAL_SIGNUP_CONSENT_KEY = "afrilance-legal-consent-pending";
 const legalAcceptanceUrl = `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "")}/api/legal/acceptance`;
@@ -224,28 +227,15 @@ function SignInPage() {
 
 function SignUpPage() {
   const [accepted, setAccepted] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
 
   const handleAcceptPolicies = () => {
     sessionStorage.setItem(LEGAL_SIGNUP_CONSENT_KEY, "true");
     setAccepted(true);
-    setReviewOpen(false);
   };
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-4">
-        <section className="rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
-          <p>Review our current Terms of Service and Privacy Policy before creating your account.</p>
-          <button
-            type="button"
-            onClick={() => setReviewOpen(true)}
-            className="mt-3 font-semibold text-primary underline underline-offset-4"
-          >
-            {accepted ? "View accepted policies" : "Review policies"}
-          </button>
-          {accepted && <p role="status" className="mt-2 text-xs text-green-700 dark:text-green-400">Policies accepted. You can continue with sign up.</p>}
-        </section>
         {accepted && (
           <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
             <p className="font-semibold">Password requirements</p>
@@ -270,11 +260,9 @@ function SignUpPage() {
         )}
       </div>
       <LegalReviewDialog
-        open={reviewOpen}
-        title="Review and accept our policies"
+        open={!accepted}
+        title="Terms of Service & Privacy Policy"
         acceptLabel="Agree and continue"
-        dismissible
-        onDismiss={() => setReviewOpen(false)}
         onAccept={handleAcceptPolicies}
       />
     </div>
@@ -465,6 +453,22 @@ function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ServiceProviderRoute() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { data: profile, isLoading } = useGetMyProfile({
+    query: {
+      enabled: isLoaded && isSignedIn,
+      queryKey: getGetMyProfileQueryKey(),
+    },
+  });
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect to="/sign-in" />;
+  if (isLoading) return null;
+  if (profile?.role !== "service_provider") return <Redirect to="/onboarding" />;
+  return <AuthenticatedRoute><NewServicePage /></AuthenticatedRoute>;
+}
+
 function AdminAccessGate() {
   const { data: profile, isLoading } = useGetMyProfile({
     query: { queryKey: getGetMyProfileQueryKey() },
@@ -524,6 +528,15 @@ function Router() {
       </Route>
       <Route path="/freelancers">
         <Layout><FreelancersPage /></Layout>
+      </Route>
+      <Route path="/services/new">
+        <ServiceProviderRoute />
+      </Route>
+      <Route path="/services/:id">
+        <Layout><ServiceDetailPage /></Layout>
+      </Route>
+      <Route path="/services">
+        <Layout><ServicesPage /></Layout>
       </Route>
       <Route path="/proposals">
         <AuthenticatedRoute><ProposalsPage /></AuthenticatedRoute>

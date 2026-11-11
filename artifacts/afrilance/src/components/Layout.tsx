@@ -10,11 +10,14 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const NAV_ITEMS = [
   { href: "/jobs", label: "Find Work" },
   { href: "/freelancers", label: "Find Talent" },
+  { href: "/services", label: "Local Services" },
 ];
 
 const AUTH_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/jobs", label: "Jobs" },
+  { href: "/jobs", label: "Find Work" },
+  { href: "/freelancers", label: "Find Talent" },
+  { href: "/services", label: "Local Services" },
   { href: "/messages", label: "Messages" },
 ];
 
@@ -36,9 +39,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifData?.unreadCount ?? 0;
 
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
-  const authNavItems = profile?.role === "client"
-    ? AUTH_NAV_ITEMS.map((item) => item.href === "/jobs" ? { href: "/freelancers", label: "Freelancers" } : item)
-    : AUTH_NAV_ITEMS;
+  const authNavItems = AUTH_NAV_ITEMS;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, ilike, and, sql, desc, isNull, lt, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
 import { isAdminUser } from "../lib/adminAccess";
 import {
@@ -13,6 +13,7 @@ import {
   notificationsTable,
   auditLogsTable,
   userReportsTable,
+  servicesTable,
 } from "@workspace/db";
 import {
   AdminListUsersQueryParams,
@@ -231,6 +232,11 @@ router.patch("/admin/users/:id/verify", async (req, res): Promise<void> => {
     .returning();
 
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  if (updated.role === "service_provider" && parsed.data.isVerified !== undefined) {
+    await db.update(servicesTable)
+      .set({ isVerified: updated.isVerified })
+      .where(eq(servicesTable.userId, updated.userId));
+  }
 
   // Determine action type for audit + notification
   if (parsed.data.verificationStatus === "approved" || parsed.data.isVerified === true) {
@@ -308,7 +314,7 @@ router.patch("/admin/users/:id/role", async (req, res): Promise<void> => {
   const params = z.object({ id: z.coerce.number().int() }).safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const parsed = z.object({ role: z.enum(["freelancer", "client", "moderator"]) }).safeParse(req.body);
+  const parsed = z.object({ role: z.enum(["freelancer", "client", "service_provider", "moderator"]) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   if (params.data.id === admin.id) {
@@ -323,6 +329,16 @@ router.patch("/admin/users/:id/role", async (req, res): Promise<void> => {
     .returning();
 
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+
+  try {
+    await clerkClient.users.updateUserMetadata(updated.userId, {
+      publicMetadata: { role: parsed.data.role },
+    });
+  } catch (error) {
+    req.log.error({ err: error, profileId: updated.id }, "Failed to sync updated role to Clerk metadata");
+    res.status(502).json({ error: "Role changed, but Clerk metadata could not be synchronized. Retry the role update." });
+    return;
+  }
 
   await insertAuditLog({
     adminId: admin.id,
