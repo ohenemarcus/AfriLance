@@ -13,14 +13,6 @@ const NAV_ITEMS = [
   { href: "/services", label: "Local Services" },
 ];
 
-const AUTH_NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/jobs", label: "Find Work" },
-  { href: "/freelancers", label: "Find Talent" },
-  { href: "/services", label: "Local Services" },
-  { href: "/messages", label: "Messages" },
-];
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useUser();
@@ -39,7 +31,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifData?.unreadCount ?? 0;
 
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
-  const authNavItems = AUTH_NAV_ITEMS;
+  const primaryMarketplaceItem = profile?.role === "client"
+    ? { href: "/freelancers", label: "Find Talent" }
+    : profile?.role === "service_provider"
+      ? { href: "/services", label: "Local Services" }
+      : { href: "/jobs", label: "Find Work" };
+  const authNavItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    primaryMarketplaceItem,
+    { href: "/messages", label: "Messages" },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

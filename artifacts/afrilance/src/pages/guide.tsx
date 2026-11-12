@@ -50,6 +50,12 @@ const WORKFLOWS = {
       action: "Edit your profile",
     },
     {
+      title: "Find a local service provider",
+      detail: "Browse Local Services by keyword, category, city, or region. Open a listing to review the provider’s description, portfolio, location, and price, then use the listed phone or WhatsApp contact to discuss availability and agree on the work. Prices shown in a listing are set by its provider; confirm the final price directly before work begins.",
+      href: "/services",
+      action: "Browse local services",
+    },
+    {
       title: "Post a clear job",
       detail: "Describe the deliverables, required skills, budget, timeline, and any working preferences before you publish the listing.",
       href: "/jobs/post",
@@ -80,6 +86,38 @@ const WORKFLOWS = {
       action: "Release payout",
     },
   ],
+  service_provider: [
+    {
+      title: "Choose the local service provider role",
+      detail: "During onboarding, select “Offer Local Service / Trade” and provide your public name, city, region, phone number, WhatsApp number, primary service category, and an initial service listing with at least one portfolio image.",
+      href: "/onboarding",
+      action: "Set up your profile",
+    },
+    {
+      title: "Create a useful service listing",
+      detail: "Add a clear title and description, choose a category, set your city and region, and add up to ten images that show your work. Choose an hourly rate, fixed price, or “Contact for quote.” Use contact details customers can reach.",
+      href: "/services/new",
+      action: "Create a listing",
+    },
+    {
+      title: "Help nearby customers find you",
+      detail: "Your listings appear in Local Services. Customers can search by service, category, city, or region, view your portfolio and provider details, and contact you directly by phone or WhatsApp.",
+      href: "/services",
+      action: "View local services",
+    },
+    {
+      title: "Manage and share your listings",
+      detail: "Use your dashboard’s “Your service listings” section to view or delete listings, and open a listing page to share it with customers. Confirm the scope, schedule, and final price directly with each customer before starting work.",
+      href: "/dashboard",
+      action: "Manage your listings",
+    },
+    {
+      title: "Understand verification and customer safety",
+      detail: "A verified badge reflects the provider’s current Afrlance profile verification; it is not a guarantee of trade qualifications, workmanship, or a particular job outcome. Contact and agree on details directly, and use sensible precautions when arranging work.",
+      href: "/support",
+      action: "Get support",
+    },
+  ],
 };
 
 export default function GuidePage() {
@@ -87,10 +125,12 @@ export default function GuidePage() {
   const { data: profile } = useGetMyProfile({
     query: { enabled: !!isSignedIn, queryKey: getGetMyProfileQueryKey() },
   });
-  const [role, setRole] = useState<"client" | "freelancer">("client");
+  const [role, setRole] = useState<"client" | "freelancer" | "service_provider">("client");
 
   useEffect(() => {
-    if (profile?.role === "client" || profile?.role === "freelancer") setRole(profile.role);
+    if (profile?.role === "client" || profile?.role === "freelancer" || profile?.role === "service_provider") {
+      setRole(profile.role);
+    }
   }, [profile?.role]);
 
   const steps = WORKFLOWS[role];
@@ -101,13 +141,14 @@ export default function GuidePage() {
         <div className="max-w-2xl">
           <p className="text-sm font-semibold text-primary">Afrlance guide</p>
           <h1 className="mt-2 text-3xl font-bold text-foreground">How to use Afrlance</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">Follow the steps for your role. You can switch roles at any time to see the other workflow.</p>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">Choose a workflow to see the steps for hiring, remote freelancing, or offering local services.</p>
         </div>
 
-        <div className="mt-7 inline-flex rounded-lg border border-border bg-card p-1" role="tablist" aria-label="Choose your workflow">
+        <div className="mt-7 flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1" role="tablist" aria-label="Choose your workflow">
           {([
             ["client", "I’m hiring"],
             ["freelancer", "I’m freelancing"],
+            ["service_provider", "I offer local services"],
           ] as const).map(([value, label]) => (
             <button key={value} type="button" role="tab" aria-selected={role === value} onClick={() => setRole(value)} className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${role === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
@@ -136,5 +177,4 @@ export default function GuidePage() {
     </main>
   );
 }
-
 
