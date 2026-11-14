@@ -52,8 +52,9 @@ async function deliverEmail(outboxId: number, notificationId: number, attempts: 
 
     const appUrl = new URL("/notifications", process.env.AFRLANCE_APP_URL || "https://afrlance.com").toString();
     const title = escapeHtml(row.notification.title);
-    const text = `You have a new notification on Afrlance: ${row.notification.title}\n\nSign in to review it: ${appUrl}\n`;
-    const html = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#183426"><h1 style="font-size:20px">You have a new Afrlance notification</h1><p>${title}</p><p><a href="${escapeHtml(appUrl)}" style="display:inline-block;background:#0f5132;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">View notification</a></p><p style="font-size:12px;color:#667">You received this email because it relates to an important account or project update.</p></div>`;
+    const body = escapeHtml(row.notification.body);
+    const text = `You have a new notification on Afrlance: ${row.notification.title}\n\n${row.notification.body}\n\nSign in to review it: ${appUrl}\n`;
+    const html = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#183426"><h1 style="font-size:20px">You have a new Afrlance notification</h1><p>${title}</p><p>${body.replace(/\n/g, "<br>")}</p><p><a href="${escapeHtml(appUrl)}" style="display:inline-block;background:#0f5132;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">View notification</a></p><p style="font-size:12px;color:#667">You received this email because it relates to an important account or project update.</p></div>`;
 
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",

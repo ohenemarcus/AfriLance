@@ -16,6 +16,7 @@ import {
   servicePricingTypeEnum,
   servicePortfolioImagesTable,
   servicesTable,
+  notificationsTable,
 } from "@workspace/db";
 import { z } from "zod";
 
@@ -272,6 +273,7 @@ export async function createServiceAction(
 
   const [profile] = await db
     .select({
+      id: profilesTable.id,
       userId: profilesTable.userId,
       role: profilesTable.role,
       name: profilesTable.name,
@@ -315,6 +317,14 @@ export async function createServiceAction(
         })),
       ).returning()
       : [];
+    await tx.insert(notificationsTable).values({
+      userId: profile.id,
+      type: "service_listing_published",
+      title: "Your service listing is live",
+      body: `"${created.title}" is now published and visible in Local Services.`,
+      relatedId: created.id,
+      relatedType: "service",
+    });
     return { service: created, portfolioImages: images };
   });
 

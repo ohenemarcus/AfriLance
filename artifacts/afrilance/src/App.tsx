@@ -400,9 +400,6 @@ function LegalAcceptanceBoundary({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div aria-hidden="true" className="pointer-events-none select-none">
-        {children}
-      </div>
       <LegalReviewDialog
         open
         title="Review and accept our current policies"

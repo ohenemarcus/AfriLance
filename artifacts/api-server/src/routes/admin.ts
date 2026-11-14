@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, ilike, and, sql, desc, isNull, lt, or } from "drizzle-orm";
+import { eq, ilike, and, sql, desc, isNull, lt, or, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
@@ -185,6 +185,16 @@ router.patch("/admin/users/:id/block", async (req, res): Promise<void> => {
   }
 
   const action = parsed.data.isBlocked ? "block_user" : "unblock_user";
+  await db.insert(notificationsTable).values({
+    userId: updated.id,
+    type: parsed.data.isBlocked ? "account_restricted" : "account_restored",
+    title: parsed.data.isBlocked ? "Account access restricted" : "Account access restored",
+    body: parsed.data.isBlocked
+      ? "Some Afrlance marketplace features are unavailable for your account. Contact support if you believe this is a mistake."
+      : "The restrictions on your Afrlance account have been lifted.",
+    relatedId: updated.id,
+    relatedType: "user",
+  });
   await insertAuditLog({
     adminId: moderator.id,
     adminName: moderator.name,
@@ -579,9 +589,28 @@ router.patch("/admin/user-reports/:id", async (req, res): Promise<void> => {
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid user report update" }); return; }
   const [updated] = await db.update(userReportsTable)
     .set({ status: body.data.status })
-    .where(eq(userReportsTable.id, params.data.id))
+    .where(and(
+      eq(userReportsTable.id, params.data.id),
+      ne(userReportsTable.status, body.data.status),
+    ))
     .returning();
-  if (!updated) { res.status(404).json({ error: "User report not found" }); return; }
+  if (!updated) {
+    const [existing] = await db.select().from(userReportsTable)
+      .where(eq(userReportsTable.id, params.data.id));
+    if (!existing) { res.status(404).json({ error: "User report not found" }); return; }
+    res.json(existing);
+    return;
+  }
+  if (body.data.status === "resolved") {
+    await db.insert(notificationsTable).values({
+      userId: updated.reporterId,
+      type: "moderation_report_resolved",
+      title: "Your report has been reviewed",
+      body: "Our team has completed its review. We may not be able to share details about actions involving another user.",
+      relatedId: updated.id,
+      relatedType: "user_report",
+    });
+  }
   res.json(updated);
 });
 

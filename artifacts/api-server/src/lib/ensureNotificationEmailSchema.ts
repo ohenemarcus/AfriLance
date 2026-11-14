@@ -47,7 +47,12 @@ export async function ensureNotificationEmailSchema(): Promise<void> {
         'hire_cancelled',
         'id_verified',
         'id_rejected',
-        'job_flagged'
+        'job_flagged',
+        'moderation_report_received',
+        'moderation_report_resolved',
+        'account_restricted',
+        'account_restored',
+        'service_listing_published'
       ) THEN
         INSERT INTO notification_email_outbox (notification_id)
         VALUES (NEW.id)

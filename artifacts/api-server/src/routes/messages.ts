@@ -726,11 +726,21 @@ router.post("/messages/conversations/:conversationId/reports", async (req, res):
     res.status(400).json({ error: "You cannot report yourself." });
     return;
   }
-  await db.insert(userReportsTable).values({
-    reporterId: profile.id,
-    reportedId,
-    reason,
-    details: details || null,
+  await db.transaction(async (tx) => {
+    const [report] = await tx.insert(userReportsTable).values({
+      reporterId: profile.id,
+      reportedId,
+      reason,
+      details: details || null,
+    }).returning();
+    await tx.insert(notificationsTable).values({
+      userId: profile.id,
+      type: "moderation_report_received",
+      title: "We received your report",
+      body: "Thanks for helping keep Afrlance safe. Our team will review your report.",
+      relatedId: report.id,
+      relatedType: "user_report",
+    });
   });
   res.status(201).json({ reported: true });
 });

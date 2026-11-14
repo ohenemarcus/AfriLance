@@ -57,7 +57,7 @@ function NotifIcon({ type }: { type: string }) {
       <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
     </svg>
   );
-  if (type === "job_flagged") return (
+  if (type === "job_flagged" || type === "service_listing_published" || type.startsWith("moderation_") || type.startsWith("account_")) return (
     <svg className={base} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
     </svg>
@@ -71,9 +71,9 @@ function NotifIcon({ type }: { type: string }) {
 
 function notifColors(type: string, isRead: boolean) {
   if (isRead) return "bg-muted text-muted-foreground";
-  if (type === "proposal_accepted" || type === "id_verified" || type === "top_rated" || type === "payment_released")
+  if (type === "proposal_accepted" || type === "id_verified" || type === "top_rated" || type === "payment_released" || type === "account_restored" || type === "moderation_report_resolved" || type === "service_listing_published")
     return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
-  if (type === "proposal_rejected" || type === "id_rejected" || type === "job_flagged")
+  if (type === "proposal_rejected" || type === "id_rejected" || type === "job_flagged" || type === "account_restricted")
     return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
   if (type === "payment_escrowed")
     return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
@@ -124,6 +124,14 @@ export default function NotificationsPage() {
         return notification.relatedType === "job" && relatedId != null
           ? `/jobs/${relatedId}`
           : "/dashboard";
+      case "moderation_report_received":
+      case "moderation_report_resolved":
+        return "/notifications";
+      case "service_listing_published":
+        return relatedId == null ? "/services" : `/services/${relatedId}`;
+      case "account_restricted":
+      case "account_restored":
+        return "/support";
       case "payment_escrowed":
       case "payment_released":
       case "payment_dispute":
