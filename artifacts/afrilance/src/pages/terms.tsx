@@ -57,6 +57,7 @@ export default function TermsPage() {
       <Section title="5. Projects, communications, and user disputes">
         <p>Before starting work, clients and service providers should agree in writing on the work, deadlines, payment, expenses, revisions, cancellation, and ownership or licensing of deliverables. Unless a separate written agreement or applicable law says otherwise, Afrlance does not decide whether a deliverable satisfies a project contract or resolve the merits of a user-to-user claim.</p>
         <p>Users are responsible for their communications and project decisions. We may offer tools or assistance at our discretion, but doing so does not make us a party to a user contract or guarantee a resolution.</p>
+        <p>To support safety and marketplace integrity, users may report suspicious activity, abusive behaviour, scams, fake listings, inappropriate content, or disputes involving a job, profile, message, review, or payment. Afrlance may review the relevant profile, communications, transaction history, evidence, and any account records reasonably necessary to assess a report. We may contact the affected user, request additional information, or take action including warnings, temporary restrictions, removal of content, suspension of accounts, or other measures necessary to protect users, the Platform, and compliance with the law.</p>
       </Section>
 
       <Section title="6. Fees and payments">
@@ -79,7 +80,7 @@ export default function TermsPage() {
       </Section>
 
       <Section title="10. Suspension and termination">
-        <p>You may stop using the Platform and close your account through available account settings or by contacting us. We may restrict or suspend access, remove content, or close an account where reasonably necessary for safety, suspected fraud or unlawful conduct, breach of these Terms, protection of users or the Platform, or compliance with law. Where appropriate and lawful, we will provide notice and an opportunity to address the issue.</p>
+        <p>You may stop using the Platform and close your account through available account settings or by contacting us. We may restrict or suspend access, remove content, or close an account where reasonably necessary for safety, suspected fraud or unlawful conduct, breach of these Terms, protection of users or the Platform, or compliance with law. We may also place a profile, listing, message thread, review, or payment activity under moderation review where necessary to investigate a report, verify a concern, or protect a vulnerable user or stakeholder. Where appropriate and lawful, we will provide notice and an opportunity to address the issue.</p>
         <p>Termination does not affect accrued rights, payment obligations, lawful retention of records, or provisions that by their nature continue to apply.</p>
       </Section>
 

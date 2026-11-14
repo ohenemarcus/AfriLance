@@ -76,6 +76,7 @@ export default function PrivacyPage() {
           <li>display profiles and listings according to your settings, and help clients and service providers communicate;</li>
           <li>process or reconcile transactions and provide payment-related support;</li>
           <li>respond to support requests, investigate reports, enforce our Terms, and prevent fraud, abuse, and security incidents;</li>
+          <li>review and moderate flagged content, user reports, disputes, and safety concerns involving profiles, jobs, messages, reviews, files, or payments;</li>
           <li>maintain, troubleshoot, measure, and improve the reliability and accessibility of the Platform;</li>
           <li>send service, security, and policy notices, and send promotional communications only where permitted and with an opportunity to opt out where required;</li>
           <li>comply with Ghanaian law, respond to lawful requests, and establish or defend legal claims.</li>
@@ -101,6 +102,13 @@ export default function PrivacyPage() {
           the relevant conversation and may be reviewed when reasonably needed
           for support, safety, dispute handling, or legal compliance.
         </p>
+        <p>
+          Where a profile, listing, file, review, payment, or message is reported
+          or flagged for review, we may access the relevant content and related
+          account details to assess whether a moderation action is needed. We may
+          also keep a record of the report, the decision, and any actions taken
+          to support fair and consistent enforcement.
+        </p>
       </Section>
 
       <Section title="5. When we share personal data">
@@ -112,6 +120,13 @@ export default function PrivacyPage() {
           <li>public authorities, regulators, courts, or law enforcement where disclosure is required by law or reasonably necessary to protect rights, safety, and the Platform; and</li>
           <li>another party where you direct us to share information or give valid consent.</li>
         </ul>
+        <p>
+          We may also share relevant information with internal staff, moderators,
+          and administrators involved in reviewing or resolving reports,
+          disputes, verification checks, or safety concerns. This may include
+          limited access to content, messages, case notes, and supporting
+          evidence needed to assess a complaint or take a lawful moderation action.
+        </p>
         <p>
           We do not sell personal data. We do not permit service providers to
           use personal data they process for us for their own unrelated
