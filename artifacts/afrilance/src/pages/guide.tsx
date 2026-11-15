@@ -51,7 +51,7 @@ const WORKFLOWS = {
     },
     {
       title: "Find a local service provider",
-      detail: "Browse Local Services by keyword, category, city, or region. Open a listing to review the provider’s description, portfolio, location, and price, then use the listed phone or WhatsApp contact to discuss availability and agree on the work. Prices shown in a listing are set by its provider; confirm the final price directly before work begins.",
+      detail: "Browse Local Services by keyword, category, city, or region. Choose “Show distance from me” and allow location access to see approximate straight-line distances rounded to whole kilometers; you can also filter to providers within 50 km. Distance is available only for providers who chose to share a service location. Open a listing to review the provider’s description, portfolio, location, and price, then contact them to discuss availability and agree on the work. Prices shown in a listing are set by its provider; confirm the final price directly before work begins.",
       href: "/services",
       action: "Browse local services",
     },
@@ -89,7 +89,7 @@ const WORKFLOWS = {
   service_provider: [
     {
       title: "Choose the local service provider role",
-      detail: "During onboarding, select “Offer Local Service / Trade” and provide your public name, city, region, phone number, WhatsApp number, primary service category, and an initial service listing with at least one portfolio image.",
+      detail: "During onboarding, select “Offer Local Service / Trade” and provide your public name, city, region, phone number, WhatsApp number, primary service category, and an initial service listing with at least one portfolio image. When creating a listing, you can optionally share your current service location so customers can see an approximate distance; your exact coordinates are not shown publicly.",
       href: "/onboarding",
       action: "Set up your profile",
     },
@@ -101,7 +101,7 @@ const WORKFLOWS = {
     },
     {
       title: "Help nearby customers find you",
-      detail: "Your listings appear in Local Services. Customers can search by service, category, city, or region, view your portfolio and provider details, and contact you directly by phone or WhatsApp.",
+      detail: "Your listings appear in Local Services. Customers can search by service, category, city, or region, view your portfolio and provider details, see an approximate distance if you shared a service location, and contact you directly.",
       href: "/services",
       action: "View local services",
     },
@@ -177,4 +177,3 @@ export default function GuidePage() {
     </main>
   );
 }
-

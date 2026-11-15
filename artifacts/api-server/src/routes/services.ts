@@ -27,8 +27,26 @@ const listServicesQuerySchema = z.object({
   category: z.string().trim().max(80).optional(),
   region: z.string().trim().max(120).optional(),
   city: z.string().trim().max(120).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+  withinKm: z.coerce.number().int().min(1).max(100).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+}).superRefine((query, ctx) => {
+  if ((query.latitude === undefined) !== (query.longitude === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latitude"],
+      message: "Latitude and longitude must be provided together",
+    });
+  }
+  if (query.withinKm !== undefined && query.latitude === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["withinKm"],
+      message: "Location is required to filter by distance",
+    });
+  }
 });
 
 const serviceImageUrlSchema = z.string().trim().max(2048).refine((value) => {
@@ -51,6 +69,8 @@ const createServiceBodySchema = z.object({
   baseRate: z.number().positive().nullable().optional(),
   region: z.string().trim().min(1).max(120),
   city: z.string().trim().min(1).max(120),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   phoneNumber: z.string().trim().min(5).max(32),
   whatsappNumber: z.string().trim().min(5).max(32),
   portfolioImages: z.array(
@@ -75,10 +95,30 @@ const createServiceBodySchema = z.object({
         message: "baseRate is required for hourly and fixed services",
       });
     }
+    if ((service.latitude == null) !== (service.longitude == null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["latitude"],
+        message: "Latitude and longitude must be provided together",
+      });
+    }
   });
 
 const serviceIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
+});
+
+const updateServiceLocationBodySchema = z.object({
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
+}).superRefine((location, ctx) => {
+  if ((location.latitude === null) !== (location.longitude === null)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latitude"],
+      message: "Latitude and longitude must both be provided or both be null",
+    });
+  }
 });
 
 export async function getServicesAction(req: Request, res: Response): Promise<void> {
@@ -88,8 +128,18 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const { query, category, region, city, limit, offset } = parsed.data;
+  const { query, category, region, city, latitude, longitude, withinKm, limit, offset } = parsed.data;
   const conditions = [eq(profilesTable.isBlocked, false)];
+  const rawDistanceKm = latitude === undefined || longitude === undefined
+    ? null
+    : sql<number>`6371 * 2 * asin(sqrt(least(1.0,
+      power(sin(radians(${latitude} - ${servicesTable.latitude}) / 2), 2)
+      + cos(radians(${servicesTable.latitude})) * cos(radians(${latitude}))
+      * power(sin(radians(${longitude} - ${servicesTable.longitude}) / 2), 2)
+    )))`;
+  const roundedDistanceKm = rawDistanceKm
+    ? sql<number>`round((${rawDistanceKm})::numeric)::double precision`
+    : sql<number | null>`null`;
   if (category) conditions.push(eq(servicesTable.category, category));
   if (region) conditions.push(ilike(servicesTable.region, `%${region}%`));
   if (city) conditions.push(ilike(servicesTable.city, `%${city}%`));
@@ -101,6 +151,9 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
         ilike(servicesTable.category, `%${query}%`),
       )!,
     );
+  }
+  if (withinKm !== undefined && rawDistanceKm) {
+    conditions.push(sql`${rawDistanceKm} <= ${withinKm}`);
   }
   const whereClause = conditions.length ? and(...conditions) : undefined;
 
@@ -116,6 +169,7 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
         baseRate: servicesTable.baseRate,
         region: servicesTable.region,
         city: servicesTable.city,
+        distanceKm: roundedDistanceKm,
         phoneNumber: servicesTable.phoneNumber,
         whatsappNumber: servicesTable.whatsappNumber,
         isVerified: servicesTable.isVerified,
@@ -125,7 +179,11 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
       .from(servicesTable)
       .innerJoin(profilesTable, eq(servicesTable.userId, profilesTable.userId))
       .where(whereClause)
-      .orderBy(desc(servicesTable.createdAt), asc(servicesTable.id))
+      .orderBy(
+        ...(rawDistanceKm
+          ? [sql`${rawDistanceKm} asc nulls last`, desc(servicesTable.createdAt), asc(servicesTable.id)]
+          : [desc(servicesTable.createdAt), asc(servicesTable.id)]),
+      )
       .limit(limit)
       .offset(offset),
     db
@@ -184,6 +242,7 @@ export async function getServiceAction(req: Request, res: Response): Promise<voi
       createdAt: servicesTable.createdAt,
       providerName: profilesTable.name,
       providerAvatarUrl: profilesTable.avatarUrl,
+      hasServiceLocation: sql<boolean>`${servicesTable.latitude} is not null and ${servicesTable.longitude} is not null`,
     })
     .from(servicesTable)
     .innerJoin(profilesTable, eq(servicesTable.userId, profilesTable.userId))
@@ -204,6 +263,44 @@ export async function getServiceAction(req: Request, res: Response): Promise<voi
     .orderBy(asc(servicePortfolioImagesTable.id));
 
   res.json({ ...service, portfolioImages });
+}
+
+export async function updateServiceLocationAction(req: Request, res: Response): Promise<void> {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const params = serviceIdParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = updateServiceLocationBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [updated] = await db
+    .update(servicesTable)
+    .set({
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
+    })
+    .where(and(
+      eq(servicesTable.id, params.data.id),
+      eq(servicesTable.userId, userId),
+    ))
+    .returning({ id: servicesTable.id });
+
+  if (!updated) {
+    res.status(404).json({ error: "Service not found" });
+    return;
+  }
+
+  res.json({ hasServiceLocation: parsed.data.latitude !== null });
 }
 
 export async function getMyServicesAction(req: Request, res: Response): Promise<void> {
@@ -372,6 +469,7 @@ export async function deleteServiceAction(
 router.get("/services", getServicesAction);
 router.get("/services/my", getMyServicesAction);
 router.get("/services/:id", getServiceAction);
+router.patch("/services/:id/location", updateServiceLocationAction);
 router.post("/services", createServiceAction);
 router.delete("/services/:id", deleteServiceAction);
 

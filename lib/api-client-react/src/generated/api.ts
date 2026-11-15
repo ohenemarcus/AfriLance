@@ -95,6 +95,8 @@ import type {
   UpdateConversationTypingBody,
   UpdateJobBody,
   UpdateProposalStatusBody,
+  UpdateServiceLocation200,
+  UpdateServiceLocationBody,
   UpsertProfileBody
 } from './api.schemas';
 
@@ -871,6 +873,78 @@ export const useDeleteService = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteServiceMutationOptions(options));
+    }
+
+export const getUpdateServiceLocationUrl = (id: number,) => {
+
+
+
+
+  return `/api/services/${id}/location`
+}
+
+/**
+ * Only the listing owner can update this location. Exact coordinates are never returned by public service endpoints.
+ * @summary Update or remove a service listing's private location
+ */
+export const updateServiceLocation = async (id: number,
+    updateServiceLocationBody: UpdateServiceLocationBody, options?: RequestInit): Promise<UpdateServiceLocation200> => {
+
+  return customFetch<UpdateServiceLocation200>(getUpdateServiceLocationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateServiceLocationBody)
+  }
+);}
+
+
+
+
+export const getUpdateServiceLocationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceLocation>>, TError,{id: number;data: BodyType<UpdateServiceLocationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateServiceLocation>>, TError,{id: number;data: BodyType<UpdateServiceLocationBody>}, TContext> => {
+
+const mutationKey = ['updateServiceLocation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateServiceLocation>>, {id: number;data: BodyType<UpdateServiceLocationBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateServiceLocation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateServiceLocationMutationResult = NonNullable<Awaited<ReturnType<typeof updateServiceLocation>>>
+    export type UpdateServiceLocationMutationBody = BodyType<UpdateServiceLocationBody>
+    export type UpdateServiceLocationMutationError = ErrorType<void>
+
+    /**
+ * @summary Update or remove a service listing's private location
+ */
+export const useUpdateServiceLocation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceLocation>>, TError,{id: number;data: BodyType<UpdateServiceLocationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateServiceLocation>>,
+        TError,
+        {id: number;data: BodyType<UpdateServiceLocationBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateServiceLocationMutationOptions(options));
     }
 
 export const getListJobsUrl = (params?: ListJobsParams,) => {

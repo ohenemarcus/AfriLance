@@ -272,6 +272,14 @@ export const ListFreelancersResponse = zod.object({
 /**
  * @summary List local service providers
  */
+export const listServicesQueryLatitudeMin = -90;
+export const listServicesQueryLatitudeMax = 90;
+
+export const listServicesQueryLongitudeMin = -180;
+export const listServicesQueryLongitudeMax = 180;
+
+export const listServicesQueryWithinKmMax = 100;
+
 export const listServicesQueryLimitDefault = 20;
 export const listServicesQueryLimitMax = 50;
 
@@ -285,6 +293,9 @@ export const ListServicesQueryParams = zod.object({
   "category": zod.coerce.string().optional(),
   "region": zod.coerce.string().optional(),
   "city": zod.coerce.string().optional(),
+  "latitude": zod.coerce.number().min(listServicesQueryLatitudeMin).max(listServicesQueryLatitudeMax).optional().describe('Customer location latitude, requested only after location permission is granted'),
+  "longitude": zod.coerce.number().min(listServicesQueryLongitudeMin).max(listServicesQueryLongitudeMax).optional().describe('Customer location longitude, requested only after location permission is granted'),
+  "withinKm": zod.coerce.number().min(1).max(listServicesQueryWithinKmMax).optional().describe('Optionally limit results to a radius around the supplied customer location'),
   "limit": zod.coerce.number().min(1).max(listServicesQueryLimitMax).default(listServicesQueryLimitDefault),
   "offset": zod.coerce.number().min(listServicesQueryOffsetMin).default(listServicesQueryOffsetDefault)
 })
@@ -300,6 +311,8 @@ export const ListServicesResponse = zod.object({
   "baseRate": zod.number().nullish(),
   "region": zod.string(),
   "city": zod.string(),
+  "distanceKm": zod.number().nullish().describe('Approximate distance rounded to whole kilometers; null unless both customer and service locations are available'),
+  "hasServiceLocation": zod.boolean().optional().describe('Whether the service has an optional private location set; exact coordinates are never returned'),
   "phoneNumber": zod.string(),
   "whatsappNumber": zod.string(),
   "isVerified": zod.boolean(),
@@ -336,6 +349,12 @@ export const createServiceBodyRegionMax = 120;
 
 export const createServiceBodyCityMax = 120;
 
+export const createServiceBodyLatitudeMin = -90;
+export const createServiceBodyLatitudeMax = 90;
+
+export const createServiceBodyLongitudeMin = -180;
+export const createServiceBodyLongitudeMax = 180;
+
 export const createServiceBodyPhoneNumberMin = 5;
 export const createServiceBodyPhoneNumberMax = 32;
 
@@ -356,6 +375,8 @@ export const CreateServiceBody = zod.object({
   "baseRate": zod.number().gt(createServiceBodyBaseRateExclusiveMin).nullish(),
   "region": zod.string().min(1).max(createServiceBodyRegionMax),
   "city": zod.string().min(1).max(createServiceBodyCityMax),
+  "latitude": zod.number().min(createServiceBodyLatitudeMin).max(createServiceBodyLatitudeMax).nullish().describe('Optional service location; exact coordinates are not returned in public service responses'),
+  "longitude": zod.number().min(createServiceBodyLongitudeMin).max(createServiceBodyLongitudeMax).nullish().describe('Optional service location; exact coordinates are not returned in public service responses'),
   "phoneNumber": zod.string().min(createServiceBodyPhoneNumberMin).max(createServiceBodyPhoneNumberMax),
   "whatsappNumber": zod.string().min(createServiceBodyWhatsappNumberMin).max(createServiceBodyWhatsappNumberMax),
   "portfolioImages": zod.array(zod.object({
@@ -381,6 +402,8 @@ export const ListMyServicesResponse = zod.object({
   "baseRate": zod.number().nullish(),
   "region": zod.string(),
   "city": zod.string(),
+  "distanceKm": zod.number().nullish().describe('Approximate distance rounded to whole kilometers; null unless both customer and service locations are available'),
+  "hasServiceLocation": zod.boolean().optional().describe('Whether the service has an optional private location set; exact coordinates are never returned'),
   "phoneNumber": zod.string(),
   "whatsappNumber": zod.string(),
   "isVerified": zod.boolean(),
@@ -420,6 +443,8 @@ export const GetServiceResponse = zod.object({
   "baseRate": zod.number().nullish(),
   "region": zod.string(),
   "city": zod.string(),
+  "distanceKm": zod.number().nullish().describe('Approximate distance rounded to whole kilometers; null unless both customer and service locations are available'),
+  "hasServiceLocation": zod.boolean().optional().describe('Whether the service has an optional private location set; exact coordinates are never returned'),
   "phoneNumber": zod.string(),
   "whatsappNumber": zod.string(),
   "isVerified": zod.boolean(),
@@ -446,6 +471,35 @@ export const DeleteServiceParams = zod.object({
 })
 
 export const DeleteServiceResponse = zod.void()
+
+
+/**
+ * Only the listing owner can update this location. Exact coordinates are never returned by public service endpoints.
+ * @summary Update or remove a service listing's private location
+ */
+
+
+
+export const UpdateServiceLocationParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const updateServiceLocationBodyLatitudeMin = -90;
+export const updateServiceLocationBodyLatitudeMax = 90;
+
+export const updateServiceLocationBodyLongitudeMin = -180;
+export const updateServiceLocationBodyLongitudeMax = 180;
+
+
+
+export const UpdateServiceLocationBody = zod.object({
+  "latitude": zod.number().min(updateServiceLocationBodyLatitudeMin).max(updateServiceLocationBodyLatitudeMax).nullable(),
+  "longitude": zod.number().min(updateServiceLocationBodyLongitudeMin).max(updateServiceLocationBodyLongitudeMax).nullable()
+})
+
+export const UpdateServiceLocationResponse = zod.object({
+  "hasServiceLocation": zod.boolean()
+})
 
 
 /**

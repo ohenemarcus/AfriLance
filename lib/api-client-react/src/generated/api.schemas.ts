@@ -756,6 +756,13 @@ export interface Service {
   baseRate?: number | null;
   region: string;
   city: string;
+  /**
+     * Approximate distance rounded to whole kilometers; null unless both customer and service locations are available
+     * @nullable
+     */
+  distanceKm?: number | null;
+  /** Whether the service has an optional private location set; exact coordinates are never returned */
+  hasServiceLocation?: boolean;
   phoneNumber: string;
   whatsappNumber: string;
   isVerified: boolean;
@@ -824,6 +831,20 @@ export interface CreateServiceBody {
      */
   city: string;
   /**
+     * Optional service location; exact coordinates are not returned in public service responses
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude?: number | null;
+  /**
+     * Optional service location; exact coordinates are not returned in public service responses
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude?: number | null;
+  /**
      * @minLength 5
      * @maxLength 32
      */
@@ -860,6 +881,24 @@ category?: string;
 region?: string;
 city?: string;
 /**
+ * Customer location latitude, requested only after location permission is granted
+ * @minimum -90
+ * @maximum 90
+ */
+latitude?: number;
+/**
+ * Customer location longitude, requested only after location permission is granted
+ * @minimum -180
+ * @maximum 180
+ */
+longitude?: number;
+/**
+ * Optionally limit results to a radius around the supplied customer location
+ * @minimum 1
+ * @maximum 100
+ */
+withinKm?: number;
+/**
  * @minimum 1
  * @maximum 50
  */
@@ -872,6 +911,25 @@ offset?: number;
 
 export type CreateService201 = {
   service: Service;
+};
+
+export type UpdateServiceLocationBody = {
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude: number | null;
+};
+
+export type UpdateServiceLocation200 = {
+  hasServiceLocation: boolean;
 };
 
 export type ListJobsParams = {

@@ -19,6 +19,13 @@ export interface Service {
   baseRate?: number | null;
   region: string;
   city: string;
+  /**
+     * Approximate distance rounded to whole kilometers; null unless both customer and service locations are available
+     * @nullable
+     */
+  distanceKm?: number | null;
+  /** Whether the service has an optional private location set; exact coordinates are never returned */
+  hasServiceLocation?: boolean;
   phoneNumber: string;
   whatsappNumber: string;
   isVerified: boolean;

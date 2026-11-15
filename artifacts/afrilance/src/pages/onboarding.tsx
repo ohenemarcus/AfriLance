@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { useAuth, useUser } from "@clerk/react";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { SERVICE_CATEGORIES, serviceRequest } from "@/lib/services";
+import { getCurrentCoordinates, SERVICE_CATEGORIES, serviceRequest, type ServiceCoordinates } from "@/lib/services";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -36,6 +36,9 @@ export default function OnboardingPage() {
     serviceDescription: "",
   });
   const [serviceImages, setServiceImages] = useState<File[]>([]);
+  const [serviceLocation, setServiceLocation] = useState<ServiceCoordinates | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [error, setError] = useState("");
   const [, setLocation] = useLocation();
   const { user } = useUser();
@@ -117,6 +120,8 @@ export default function OnboardingPage() {
                   pricingType: "contact_for_quote",
                   region: form.region.trim(),
                   city: form.city.trim(),
+                  latitude: serviceLocation?.latitude ?? null,
+                  longitude: serviceLocation?.longitude ?? null,
                   phoneNumber: form.phoneNumber.trim(),
                   whatsappNumber: form.whatsappNumber.trim(),
                   portfolioImages,
@@ -282,6 +287,34 @@ export default function OnboardingPage() {
                   Service description *
                   <textarea required minLength={10} maxLength={5000} rows={4} value={form.serviceDescription} onChange={(e) => setForm((f) => ({ ...f, serviceDescription: e.target.value }))} placeholder="Describe your experience, services, and what customers can expect." className="mt-1.5 w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm" />
                 </label>
+                <section className="rounded-xl border border-border bg-muted/40 p-4">
+                  <h3 className="font-semibold text-foreground">Help nearby customers find you</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Optionally share the service location for approximate distance estimates. Your exact coordinates are not shown publicly.</p>
+                  <button
+                    type="button"
+                    disabled={locationLoading}
+                    onClick={() => {
+                      setLocationLoading(true);
+                      setLocationError("");
+                      void getCurrentCoordinates()
+                        .then(setServiceLocation)
+                        .catch((cause: unknown) => setLocationError(cause instanceof Error ? cause.message : "Could not get your location."))
+                        .finally(() => setLocationLoading(false));
+                    }}
+                    className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                  >
+                    {locationLoading ? "Getting location…" : serviceLocation ? "Update service location" : "Use my current location"}
+                  </button>
+                  {serviceLocation && (
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-emerald-700">Service location added for distance estimates.</p>
+                      <button type="button" onClick={() => setServiceLocation(null)} className="text-sm font-medium text-muted-foreground underline hover:text-foreground">
+                        Remove location
+                      </button>
+                    </div>
+                  )}
+                  {locationError && <p role="alert" className="mt-2 text-sm text-destructive">{locationError}</p>}
+                </section>
                 <div>
                   <label htmlFor="onboarding-service-images" className="block text-sm font-medium text-foreground mb-1.5">Portfolio images * (up to 10, 10MB each)</label>
                   <input id="onboarding-service-images" type="file" accept="image/*" multiple onChange={(e) => { if (e.target.files) addServiceImages(e.target.files); e.currentTarget.value = ""; }} className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground" />

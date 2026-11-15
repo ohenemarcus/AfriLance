@@ -41,6 +41,20 @@ export interface CreateServiceBody {
      */
   city: string;
   /**
+     * Optional service location; exact coordinates are not returned in public service responses
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude?: number | null;
+  /**
+     * Optional service location; exact coordinates are not returned in public service responses
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude?: number | null;
+  /**
      * @minLength 5
      * @maxLength 32
      */

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { BadgeCheck, MapPin, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
 import { formatCurrency } from "@/lib/format";
-import { serviceImageUrl, whatsappUrl, type ServiceListing } from "@/lib/services";
+import { serviceImageUrl, type ServiceListing } from "@/lib/services";
+import { ServiceContactOptions } from "@/components/ServiceContactOptions";
 
 export function ServiceCard({ service }: { service: ServiceListing }) {
+  const [contactOpen, setContactOpen] = useState(false);
   const primaryImage = service.portfolioImages[0];
   const price = service.pricingType === "contact_for_quote"
     ? "Contact for quote"
@@ -41,15 +44,25 @@ export function ServiceCard({ service }: { service: ServiceListing }) {
           </span>
           <span className="font-bold text-primary">{price}</span>
         </div>
-        <a
-          href={whatsappUrl(service.whatsappNumber)}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(event) => event.stopPropagation()}
+        {service.distanceKm != null && (
+          <p className="text-sm font-medium text-muted-foreground">
+            {service.distanceKm < 1 ? "Less than 1 km away" : `About ${service.distanceKm} km away`}
+          </p>
+        )}
+        <button
+          type="button"
+          aria-expanded={contactOpen}
+          aria-controls={`service-contact-${service.id}`}
+          onClick={() => setContactOpen((open) => !open)}
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
         >
-          <MessageCircle className="size-4" aria-hidden="true" /> WhatsApp provider
-        </a>
+          <MessageCircle className="size-4" aria-hidden="true" /> Contact provider
+        </button>
+        {contactOpen && (
+          <div id={`service-contact-${service.id}`} className="pt-1">
+            <ServiceContactOptions service={service} />
+          </div>
+        )}
       </div>
     </article>
   );

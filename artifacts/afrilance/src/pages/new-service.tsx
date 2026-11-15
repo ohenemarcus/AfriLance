@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/react";
 import { useLocation } from "wouter";
 import { ImagePlus, X } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { SERVICE_CATEGORIES, serviceRequest, type ServicePricingType } from "@/lib/services";
+import { getCurrentCoordinates, SERVICE_CATEGORIES, serviceRequest, type ServiceCoordinates, type ServicePricingType } from "@/lib/services";
 
 type SelectedImage = { file: File; previewUrl: string };
 
@@ -17,6 +17,9 @@ export default function NewServicePage() {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [serviceLocation, setServiceLocation] = useState<ServiceCoordinates | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -85,6 +88,8 @@ export default function NewServicePage() {
         method: "POST",
         body: JSON.stringify({
           ...form,
+          latitude: serviceLocation?.latitude ?? null,
+          longitude: serviceLocation?.longitude ?? null,
           baseRate: form.pricingType === "contact_for_quote" ? undefined : Number(form.baseRate),
           portfolioImages,
         }),
@@ -106,6 +111,34 @@ export default function NewServicePage() {
       </div>
       <form onSubmit={submit} className="space-y-6 rounded-2xl border border-border bg-card p-5 sm:p-8">
         {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+        <section className="rounded-xl border border-border bg-muted/40 p-4">
+          <h2 className="font-semibold text-foreground">Help nearby customers find you</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Optionally share the service location to show customers an approximate distance. Your exact coordinates are not shown publicly.</p>
+          <button
+            type="button"
+            disabled={locationLoading}
+            onClick={() => {
+              setLocationLoading(true);
+              setLocationError("");
+              void getCurrentCoordinates()
+                .then(setServiceLocation)
+                .catch((cause: unknown) => setLocationError(cause instanceof Error ? cause.message : "Could not get your location."))
+                .finally(() => setLocationLoading(false));
+            }}
+            className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          >
+            {locationLoading ? "Getting location…" : serviceLocation ? "Update service location" : "Use my current location"}
+          </button>
+          {serviceLocation && (
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="text-sm text-emerald-700">Service location added for distance estimates.</p>
+              <button type="button" onClick={() => setServiceLocation(null)} className="text-sm font-medium text-muted-foreground underline hover:text-foreground">
+                Remove location
+              </button>
+            </div>
+          )}
+          {locationError && <p role="alert" className="mt-2 text-sm text-destructive">{locationError}</p>}
+        </section>
         <label className="block text-sm font-medium text-foreground">
           Service title *
           <input required minLength={2} maxLength={120} value={form.title} onChange={(e) => setForm((value) => ({ ...value, title: e.target.value }))} placeholder="e.g. Residential plumbing and repairs" className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5" />
@@ -142,7 +175,7 @@ export default function NewServicePage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm font-medium text-foreground">
             City *
-            <input required maxLength={120} value={form.city} onChange={(e) => setForm((value) => ({ ...value, city: e.target.value }))} placeholder="East Legon" className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5" />
+            <input required maxLength={120} value={form.city} onChange={(e) => setForm((value) => ({ ...value, city: e.target.value }))} placeholder="East Legon, Accra" className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5" />
           </label>
           <label className="block text-sm font-medium text-foreground">
             Region *

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, MapPin, MessageCircle, Phone, X } from "lucide-react";
-import { serviceImageUrl, serviceRequest, servicesApiUrl, whatsappUrl, type ServiceListing } from "@/lib/services";
+import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, MapPin, MessageCircle, X } from "lucide-react";
+import { ServiceContactOptions } from "@/components/ServiceContactOptions";
+import { getCurrentCoordinates, serviceImageUrl, serviceRequest, servicesApiUrl, type ServiceListing } from "@/lib/services";
 import { formatCurrency } from "@/lib/format";
 
 export default function ServiceDetailPage() {
@@ -15,6 +16,9 @@ export default function ServiceDetailPage() {
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [contactOpen, setContactOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [locationMessage, setLocationMessage] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,6 +63,36 @@ export default function ServiceDetailPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not delete service");
       setDeleting(false);
+    }
+  };
+
+  const updateServiceLocation = async (remove = false) => {
+    if (!service) return;
+    setUpdatingLocation(true);
+    setLocationError("");
+    setLocationMessage("");
+    try {
+      const coordinates = remove ? null : await getCurrentCoordinates();
+      const token = await getToken();
+      const response = await serviceRequest<{ hasServiceLocation: boolean }>(
+        `/api/services/${service.id}/location`,
+        token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            latitude: coordinates?.latitude ?? null,
+            longitude: coordinates?.longitude ?? null,
+          }),
+        },
+      );
+      setService((current) => current ? { ...current, hasServiceLocation: response.hasServiceLocation } : current);
+      setLocationMessage(response.hasServiceLocation
+        ? "Service location saved. Customers can now see an approximate distance."
+        : "Service location removed.");
+    } catch (cause) {
+      setLocationError(cause instanceof Error ? cause.message : "Could not update service location.");
+    } finally {
+      setUpdatingLocation(false);
     }
   };
 
@@ -107,9 +141,25 @@ export default function ServiceDetailPage() {
             <MessageCircle className="size-5" aria-hidden="true" /> Contact provider
           </button>
           {service.userId === userId && (
-            <button type="button" onClick={() => void deleteListing()} disabled={deleting} className="mt-3 w-full rounded-xl border border-destructive/40 px-4 py-2.5 text-sm font-semibold text-destructive disabled:opacity-50">
-              {deleting ? "Deleting…" : "Delete this listing"}
-            </button>
+            <>
+              <div className="mt-5 border-t border-border pt-4">
+                <p className="text-sm font-semibold text-foreground">Service location</p>
+                <p className="mt-1 text-xs text-muted-foreground">Share your current service location to show customers approximate distance. Exact coordinates stay private.</p>
+                <button type="button" onClick={() => void updateServiceLocation()} disabled={updatingLocation} className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50">
+                  {updatingLocation ? "Updating location…" : service.hasServiceLocation ? "Update shared location" : "Share current location"}
+                </button>
+                {service.hasServiceLocation && (
+                  <button type="button" onClick={() => void updateServiceLocation(true)} disabled={updatingLocation} className="mt-2 w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground underline hover:text-foreground disabled:opacity-50">
+                    Remove shared location
+                  </button>
+                )}
+                {locationMessage && <p role="status" className="mt-2 text-xs text-emerald-700">{locationMessage}</p>}
+                {locationError && <p role="alert" className="mt-2 text-xs text-destructive">{locationError}</p>}
+              </div>
+              <button type="button" onClick={() => void deleteListing()} disabled={deleting} className="mt-3 w-full rounded-xl border border-destructive/40 px-4 py-2.5 text-sm font-semibold text-destructive disabled:opacity-50">
+                {deleting ? "Deleting…" : "Delete this listing"}
+              </button>
+            </>
           )}
         </aside>
       </div>
@@ -122,9 +172,8 @@ export default function ServiceDetailPage() {
               <button type="button" aria-label="Close contact panel" onClick={() => setContactOpen(false)} className="rounded-full p-2 hover:bg-muted"><X className="size-5" aria-hidden="true" /></button>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{service.title} · {service.city}, {service.region}</p>
-            <div className="mt-8 space-y-3">
-              <a href={whatsappUrl(service.whatsappNumber)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800"><MessageCircle className="size-5" aria-hidden="true" /> Chat on WhatsApp</a>
-              <a href={`tel:${service.phoneNumber.replace(/[^\d+]/g, "")}`} className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 font-semibold text-foreground hover:bg-muted"><Phone className="size-5" aria-hidden="true" /> Call {service.phoneNumber}</a>
+            <div className="mt-8">
+              <ServiceContactOptions service={service} onSelect={() => setContactOpen(false)} />
             </div>
             <p className="mt-auto text-xs text-muted-foreground">Contact details are provided by the service provider. Confirm scope and pricing directly before work begins.</p>
           </section>

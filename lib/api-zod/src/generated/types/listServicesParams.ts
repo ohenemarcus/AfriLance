@@ -12,6 +12,24 @@ category?: string;
 region?: string;
 city?: string;
 /**
+ * Customer location latitude, requested only after location permission is granted
+ * @minimum -90
+ * @maximum 90
+ */
+latitude?: number;
+/**
+ * Customer location longitude, requested only after location permission is granted
+ * @minimum -180
+ * @maximum 180
+ */
+longitude?: number;
+/**
+ * Optionally limit results to a radius around the supplied customer location
+ * @minimum 1
+ * @maximum 100
+ */
+withinKm?: number;
+/**
  * @minimum 1
  * @maximum 50
  */

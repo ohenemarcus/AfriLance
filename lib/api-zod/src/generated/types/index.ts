@@ -106,4 +106,6 @@ export * from './updateJobBody';
 export * from './updateJobBodyStatus';
 export * from './updateProposalStatusBody';
 export * from './updateProposalStatusBodyStatus';
+export * from './updateServiceLocation200';
+export * from './updateServiceLocationBody';
 export * from './upsertProfileBody';

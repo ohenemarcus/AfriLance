@@ -39,6 +39,34 @@ export interface ServiceListing {
   providerName: string;
   providerAvatarUrl?: string | null;
   portfolioImages: ServicePortfolioImage[];
+  distanceKm?: number | null;
+  hasServiceLocation?: boolean;
+}
+
+export interface ServiceCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export function getCurrentCoordinates(): Promise<ServiceCoordinates> {
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error("Location services are not available in this browser."));
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({ latitude: coords.latitude, longitude: coords.longitude }),
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? "Location permission was denied. Allow location access in your browser to use this feature."
+          : error.code === error.POSITION_UNAVAILABLE
+            ? "Your location could not be determined. Try again or check your device settings."
+            : "Location request timed out. Please try again.";
+        reject(new Error(message));
+      },
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
+    );
+  });
 }
 
 export function servicesApiUrl(path: string): string {
@@ -54,6 +82,11 @@ export function serviceImageUrl(imageUrl: string): string {
 export function whatsappUrl(phoneNumber: string): string {
   const digits = phoneNumber.replace(/\D/g, "");
   return `https://wa.me/${digits}`;
+}
+
+export function phoneNumberUrl(phoneNumber: string, protocol: "tel" | "sms"): string {
+  const number = phoneNumber.replace(/[^\d+]/g, "");
+  return `${protocol}:${number}`;
 }
 
 export async function serviceRequest<T>(

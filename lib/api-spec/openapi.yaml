@@ -184,6 +184,27 @@ paths:
           in: query
           schema:
             type: string
+        - name: latitude
+          in: query
+          description: Customer location latitude, requested only after location permission is granted
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          description: Customer location longitude, requested only after location permission is granted
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - name: withinKm
+          in: query
+          description: Optionally limit results to a radius around the supplied customer location
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
         - name: limit
           in: query
           schema:
@@ -277,6 +298,53 @@ paths:
           description: Authentication required
         "404":
           description: Service not found or not owned by current user
+
+  /services/{id}/location:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateServiceLocation
+      tags: [services]
+      summary: Update or remove a service listing's private location
+      description: Only the listing owner can update this location. Exact coordinates are never returned by public service endpoints.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                latitude:
+                  type: ["number", "null"]
+                  minimum: -90
+                  maximum: 90
+                longitude:
+                  type: ["number", "null"]
+                  minimum: -180
+                  maximum: 180
+              required: [latitude, longitude]
+      responses:
+        "200":
+          description: Service location updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasServiceLocation:
+                    type: boolean
+                required: [hasServiceLocation]
+        "401":
+          description: Authentication required
+        "404":
+          description: Service listing not found
 
   # Jobs
   /jobs:
@@ -2826,6 +2894,12 @@ components:
           type: string
         city:
           type: string
+        distanceKm:
+          type: ["number", "null"]
+          description: Approximate distance rounded to whole kilometers; null unless both customer and service locations are available
+        hasServiceLocation:
+          type: boolean
+          description: Whether the service has an optional private location set; exact coordinates are never returned
         phoneNumber:
           type: string
         whatsappNumber:
@@ -2903,6 +2977,16 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+        latitude:
+          type: ["number", "null"]
+          minimum: -90
+          maximum: 90
+          description: Optional service location; exact coordinates are not returned in public service responses
+        longitude:
+          type: ["number", "null"]
+          minimum: -180
+          maximum: 180
+          description: Optional service location; exact coordinates are not returned in public service responses
         phoneNumber:
           type: string
           minLength: 5

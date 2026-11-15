@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { ServiceCard } from "@/components/ServiceCard";
-import { SERVICE_CATEGORIES, serviceRequest, servicesApiUrl, type ServiceListing } from "@/lib/services";
+import { getCurrentCoordinates, SERVICE_CATEGORIES, servicesApiUrl, type ServiceCoordinates, type ServiceListing } from "@/lib/services";
 
 interface ServiceListResponse {
   services: ServiceListing[];
@@ -18,6 +18,10 @@ export default function ServicesPage() {
   const [category, setCategory] = useState(initialParams.get("category") ?? "");
   const [region, setRegion] = useState(initialParams.get("region") ?? "");
   const [city, setCity] = useState(initialParams.get("city") ?? "");
+  const [viewerLocation, setViewerLocation] = useState<ServiceCoordinates | null>(null);
+  const [nearbyOnly, setNearbyOnly] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<ServiceListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +42,11 @@ export default function ServicesPage() {
     if (category) params.set("category", category);
     if (region.trim()) params.set("region", region.trim());
     if (city.trim()) params.set("city", city.trim());
+    if (viewerLocation) {
+      params.set("latitude", String(viewerLocation.latitude));
+      params.set("longitude", String(viewerLocation.longitude));
+      if (nearbyOnly) params.set("withinKm", "50");
+    }
 
     setLoading(true);
     setError("");
@@ -57,7 +66,7 @@ export default function ServicesPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [query, category, region, city, offset]);
+  }, [query, category, region, city, offset, viewerLocation, nearbyOnly]);
 
   const applyFilters = (event: React.FormEvent) => {
     event.preventDefault();
@@ -108,6 +117,36 @@ export default function ServicesPage() {
           <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
             <SlidersHorizontal className="size-4" aria-hidden="true" /><span className="sr-only">Apply filters</span>
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 md:col-span-2 lg:col-span-5">
+          <button
+            type="button"
+            disabled={locationLoading}
+            onClick={() => {
+              setLocationLoading(true);
+              setLocationError("");
+              void getCurrentCoordinates()
+                .then(setViewerLocation)
+                .catch((cause: unknown) => setLocationError(cause instanceof Error ? cause.message : "Could not get your location."))
+                .finally(() => setLocationLoading(false));
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          >
+            <MapPin className="size-4" aria-hidden="true" />
+            {locationLoading ? "Getting location…" : viewerLocation ? "Update my location" : "Show distance from me"}
+          </button>
+          <label className="inline-flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={nearbyOnly}
+              disabled={!viewerLocation}
+              onChange={(event) => { setOffset(0); setNearbyOnly(event.target.checked); }}
+              className="size-4 accent-primary disabled:opacity-50"
+            />
+            Only show services within 50 km
+          </label>
+          {locationError && <p role="alert" className="text-sm text-destructive">{locationError}</p>}
+          {viewerLocation && <p className="text-xs text-muted-foreground">Distances are approximate straight-line estimates, rounded to whole kilometers, and only shown for listings with a shared service location.</p>}
         </div>
       </form>
 

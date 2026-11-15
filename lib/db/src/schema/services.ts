@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   numeric,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -30,6 +31,8 @@ export const servicesTable = pgTable("services", {
   baseRate: numeric("base_rate", { precision: 12, scale: 2, mode: "number" }),
   region: text("region").notNull(),
   city: text("city").notNull(),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   phoneNumber: text("phone_number").notNull(),
   whatsappNumber: text("whatsapp_number").notNull(),
   isVerified: boolean("is_verified").notNull().default(false),
@@ -57,9 +60,20 @@ export const insertServiceSchema = createInsertSchema(servicesTable)
     description: z.string().trim().min(10).max(5000),
     region: z.string().trim().min(1).max(120),
     city: z.string().trim().min(1).max(120),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
     phoneNumber: z.string().trim().min(5).max(32),
     whatsappNumber: z.string().trim().min(5).max(32),
     baseRate: z.number().positive().nullable().optional(),
+  })
+  .superRefine((service, ctx) => {
+    if ((service.latitude == null) !== (service.longitude == null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["latitude"],
+        message: "Latitude and longitude must be provided together",
+      });
+    }
   });
 
 export const insertServicePortfolioImageSchema = createInsertSchema(
