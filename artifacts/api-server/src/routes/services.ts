@@ -132,11 +132,14 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
   const conditions = [eq(profilesTable.isBlocked, false)];
   const rawDistanceKm = latitude === undefined || longitude === undefined
     ? null
-    : sql<number>`6371 * 2 * asin(sqrt(least(1.0,
-      power(sin(radians(${latitude} - ${servicesTable.latitude}) / 2), 2)
-      + cos(radians(${servicesTable.latitude})) * cos(radians(${latitude}))
-      * power(sin(radians(${longitude} - ${servicesTable.longitude}) / 2), 2)
-    )))`;
+    : sql<number | null>`case
+      when ${servicesTable.latitude} is null or ${servicesTable.longitude} is null then null
+      else 6371 * 2 * asin(sqrt(least(1.0,
+        power(sin(radians(${latitude} - ${servicesTable.latitude}) / 2), 2)
+        + cos(radians(${servicesTable.latitude})) * cos(radians(${latitude}))
+        * power(sin(radians(${longitude} - ${servicesTable.longitude}) / 2), 2)
+      )))
+    end`;
   const roundedDistanceKm = rawDistanceKm
     ? sql<number>`round((${rawDistanceKm})::numeric)::double precision`
     : sql<number | null>`null`;
