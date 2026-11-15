@@ -19,6 +19,7 @@ import {
   notificationsTable,
 } from "@workspace/db";
 import { z } from "zod";
+import { completedJobsCountSql } from "../lib/profileTrust";
 
 const router = Router();
 
@@ -178,6 +179,11 @@ export async function getServicesAction(req: Request, res: Response): Promise<vo
         isVerified: servicesTable.isVerified,
         createdAt: servicesTable.createdAt,
         providerName: profilesTable.name,
+        providerProfileId: profilesTable.id,
+        providerIsVerified: profilesTable.isVerified,
+        providerCompletedJobs: completedJobsCountSql(profilesTable.id),
+        providerAvgRating: profilesTable.avgRating,
+        providerTotalReviews: profilesTable.totalReviews,
       })
       .from(servicesTable)
       .innerJoin(profilesTable, eq(servicesTable.userId, profilesTable.userId))
@@ -245,6 +251,11 @@ export async function getServiceAction(req: Request, res: Response): Promise<voi
       createdAt: servicesTable.createdAt,
       providerName: profilesTable.name,
       providerAvatarUrl: profilesTable.avatarUrl,
+      providerProfileId: profilesTable.id,
+      providerIsVerified: profilesTable.isVerified,
+      providerCompletedJobs: completedJobsCountSql(profilesTable.id),
+      providerAvgRating: profilesTable.avgRating,
+      providerTotalReviews: profilesTable.totalReviews,
       hasServiceLocation: sql<boolean>`${servicesTable.latitude} is not null and ${servicesTable.longitude} is not null`,
     })
     .from(servicesTable)

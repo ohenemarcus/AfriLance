@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { eq, ilike, and, gte, lte, sql, or, isNull } from "drizzle-orm";
+import { eq, ilike, and, gte, lte, sql, or, isNull, getTableColumns } from "drizzle-orm";
 import { clerkClient, getAuth } from "@clerk/express";
 import { db, profilesTable, auditLogsTable } from "@workspace/db";
 import { isAdminUser } from "../lib/adminAccess";
 import { withoutPrivateNameFields } from "../lib/profilePrivacy";
+import { completedJobsCountSql } from "../lib/profileTrust";
 import {
   UpsertMyProfileBody,
   ListFreelancersQueryParams,
@@ -231,7 +232,10 @@ router.get("/profiles/freelancers", async (req, res): Promise<void> => {
   }
 
   const freelancers = await db
-    .select()
+    .select({
+      ...getTableColumns(profilesTable),
+      completedJobs: completedJobsCountSql(profilesTable.id),
+    })
     .from(profilesTable)
     .where(and(...conditions))
     .limit(Number(limit))
@@ -255,7 +259,10 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
   }
 
   const [profile] = await db
-    .select()
+    .select({
+      ...getTableColumns(profilesTable),
+      completedJobs: completedJobsCountSql(profilesTable.id),
+    })
     .from(profilesTable)
     .where(eq(profilesTable.id, params.data.id));
 

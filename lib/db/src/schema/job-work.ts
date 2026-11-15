@@ -1,4 +1,21 @@
-import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { date, index, integer, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+
+export const projectAgreementsTable = pgTable("project_agreements", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull(),
+  proposalId: integer("proposal_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  freelancerId: integer("freelancer_id").notNull(),
+  scope: text("scope").notNull(),
+  deadline: date("deadline", { mode: "string" }).notNull(),
+  amount: real("amount").notNull(),
+  status: text("status").notNull().default("pending_freelancer"),
+  changeRequest: text("change_request"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("project_agreements_job_unique").on(table.jobId),
+]);
 
 export const jobWorkSubmissionsTable = pgTable("job_work_submissions", {
   id: serial("id").primaryKey(),

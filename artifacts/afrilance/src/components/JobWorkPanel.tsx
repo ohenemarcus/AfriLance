@@ -20,6 +20,15 @@ type WorkSubmission = {
   attachments: WorkAttachment[];
 };
 
+type ProjectAgreement = {
+  id: number;
+  scope: string;
+  deadline: string;
+  amount: number;
+  status: "pending_freelancer" | "changes_requested" | "confirmed";
+  changeRequest: string | null;
+};
+
 type JobWorkPanelProps = {
   jobId: number;
   jobStatus: string;
@@ -71,6 +80,13 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
   const [note, setNote] = useState("");
   const [revisionNote, setRevisionNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [agreement, setAgreement] = useState<ProjectAgreement | null>(null);
+  const [acceptedAmount, setAcceptedAmount] = useState<number | null>(null);
+  const [agreementLoading, setAgreementLoading] = useState(false);
+  const [agreementBusy, setAgreementBusy] = useState(false);
+  const [agreementScope, setAgreementScope] = useState("");
+  const [agreementDeadline, setAgreementDeadline] = useState("");
+  const [changeRequest, setChangeRequest] = useState("");
   const { uploadFile, isUploading, error: uploadError } = useFileUpload({
     maxSizeMB: 10,
     accept: ["image/", "application/", "text/"],
@@ -100,20 +116,107 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
     }
   }, [jobId, request]);
 
+  const loadAgreement = useCallback(async (signal?: AbortSignal) => {
+    setAgreementLoading(true);
+    try {
+      const result = await request<{
+        agreement: ProjectAgreement | null;
+        acceptedAmount: number;
+      }>(`/api/jobs/${jobId}/agreement`, { signal });
+      setAgreement(result.agreement);
+      setAcceptedAmount(result.acceptedAmount);
+      if (result.agreement) {
+        setAgreementScope(result.agreement.scope);
+        setAgreementDeadline(result.agreement.deadline);
+      }
+    } catch (cause) {
+      if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "Could not load the project agreement");
+    } finally {
+      if (!signal?.aborted) setAgreementLoading(false);
+    }
+  }, [jobId, request]);
+
   useEffect(() => {
     if (!isClient && !isAcceptedFreelancer) return;
     const controller = new AbortController();
     void loadSubmissions(controller.signal);
+    if (jobStatus === "awaiting_funding") void loadAgreement(controller.signal);
     return () => controller.abort();
-  }, [isAcceptedFreelancer, isClient, loadSubmissions]);
+  }, [isAcceptedFreelancer, isClient, jobStatus, loadAgreement, loadSubmissions]);
 
   if (!isClient && !isAcceptedFreelancer) return null;
 
   const latestSubmission = submissions[0];
+  const workStage = jobStatus === "completed" ? 5
+    : jobStatus === "awaiting_release" ? 4
+      : jobStatus === "awaiting_approval" ? 3
+        : jobStatus === "in_progress" ? 2
+          : jobStatus === "payment_pending" ? 1
+            : jobStatus === "awaiting_funding" && agreement?.status === "confirmed" ? 1
+              : 0;
+  const projectSteps = ["Agree scope", "Fund project", "Work & delivery", "Review & revisions", "Release payment"];
+
+  const saveAgreement = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (agreementScope.trim().length < 20 || !agreementDeadline) return;
+    setAgreementBusy(true);
+    setError("");
+    try {
+      await request(`/api/jobs/${jobId}/agreement`, {
+        method: "PUT",
+        body: JSON.stringify({ scope: agreementScope.trim(), deadline: agreementDeadline }),
+      });
+      await loadAgreement();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save the project agreement");
+    } finally {
+      setAgreementBusy(false);
+    }
+  };
+
+  const confirmAgreement = async () => {
+    setAgreementBusy(true);
+    setError("");
+    try {
+      await request(`/api/jobs/${jobId}/agreement/confirm`, { method: "POST" });
+      await loadAgreement();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not confirm the project agreement");
+    } finally {
+      setAgreementBusy(false);
+    }
+  };
+
+  const requestAgreementChanges = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (changeRequest.trim().length < 5) return;
+    setAgreementBusy(true);
+    setError("");
+    try {
+      await request(`/api/jobs/${jobId}/agreement/request-changes`, {
+        method: "POST",
+        body: JSON.stringify({ note: changeRequest.trim() }),
+      });
+      setChangeRequest("");
+      await loadAgreement();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not request agreement changes");
+    } finally {
+      setAgreementBusy(false);
+    }
+  };
   const stageCopy: Record<string, string> = {
     awaiting_funding: isClient
-      ? "A freelancer is selected. Fund the accepted proposal before work begins."
-      : "Your proposal was accepted. Work can begin after the client confirms payment.",
+      ? agreement?.status === "confirmed"
+        ? "Both sides confirmed the scope and deadline. Fund the accepted proposal before work begins."
+        : agreement?.status === "changes_requested"
+          ? "The freelancer requested changes. Update the scope or deadline, then send the agreement again."
+          : agreement
+            ? "Review the proposed scope and deadline. The freelancer must confirm them before you fund the project."
+            : "Write down the project deliverables and deadline. The freelancer must confirm them before you fund the project."
+      : agreement?.status === "pending_freelancer"
+        ? "Review the deliverables, deadline, and payment amount. Confirm or request changes before the client funds the project."
+        : "Your proposal was accepted. Review and confirm the project agreement before the client funds the work.",
     payment_pending: isClient
       ? "Payment checkout is pending. Complete or verify the Paystack charge before work begins."
       : "The client is completing payment. Wait for the funded status before beginning work.",
@@ -208,7 +311,7 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
   };
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 sm:p-6">
+    <section id="project-progress" className="rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-foreground">Project progress</h2>
@@ -217,13 +320,88 @@ export function JobWorkPanel({ jobId, jobStatus, isClient, isAcceptedFreelancer,
         <StatusBadge status={jobStatus} />
       </div>
 
+      <ol aria-label="Project workflow" className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {projectSteps.map((step, index) => {
+          const complete = index < workStage;
+          const current = index === workStage && jobStatus !== "completed";
+          return (
+            <li key={step} aria-current={current ? "step" : undefined} className={`rounded-lg border px-3 py-2 text-xs font-medium ${complete ? "border-emerald-200 bg-emerald-50 text-emerald-800" : current ? "border-primary/40 bg-primary/5 text-primary" : "border-border bg-muted/30 text-muted-foreground"}`}>
+              <span className="mr-1.5">{complete ? "✓" : index + 1}</span>{step}
+            </li>
+          );
+        })}
+      </ol>
+
       {error && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {uploadError && <p role="alert" className="mt-2 text-sm text-destructive">{uploadError}</p>}
 
-      {jobStatus === "awaiting_funding" && isClient && (
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-          <p><Link to={fundingHref} className="font-semibold text-primary underline underline-offset-2">Fund accepted proposal</Link> through Paystack.</p>
-          <button type="button" onClick={() => void cancelHire()} disabled={busy} className="text-sm font-medium text-destructive underline underline-offset-2 disabled:opacity-50">Cancel hire</button>
+      {jobStatus === "awaiting_funding" && (
+        <div className="mt-5 space-y-4 border-t border-border pt-4">
+          <div>
+            <h3 className="font-semibold text-foreground">Agree on the project before funding</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Confirm the deliverables, deadline, and accepted proposal amount together. Work should only begin after the client funds the confirmed agreement.</p>
+          </div>
+          {agreementLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">Loading project agreement…</p>
+          ) : agreement && (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agreed deliverables</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-foreground">{agreement.scope}</p>
+              </div>
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <p><span className="text-muted-foreground">Deadline: </span><strong>{new Intl.DateTimeFormat(undefined, { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${agreement.deadline}T00:00:00Z`))}</strong></p>
+                <p><span className="text-muted-foreground">Project amount: </span><strong>₵{agreement.amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
+              </div>
+              {agreement.changeRequest && (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><strong>Requested change:</strong> {agreement.changeRequest}</p>
+              )}
+              {agreement.status === "confirmed" && (
+                <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Both sides confirmed this agreement. The client can now fund the project.</p>
+              )}
+              {agreement.status === "pending_freelancer" && isClient && (
+                <p className="text-sm text-muted-foreground">Waiting for the freelancer to review and confirm these terms.</p>
+              )}
+              {agreement.status === "pending_freelancer" && isAcceptedFreelancer && (
+                <div className="space-y-3 border-t border-border pt-3">
+                  <p className="text-sm font-medium text-foreground">Review these terms. Confirm them or explain what should change before payment.</p>
+                  <button type="button" onClick={() => void confirmAgreement()} disabled={agreementBusy} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                    {agreementBusy ? "Saving…" : "Confirm project agreement"}
+                  </button>
+                  <form onSubmit={requestAgreementChanges} className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">Request a change
+                      <textarea required minLength={5} maxLength={2000} rows={3} value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} placeholder="Be specific about the deliverable or deadline you’d like to clarify." className="mt-1.5 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <button type="submit" disabled={agreementBusy || changeRequest.trim().length < 5} className="rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50">Request changes</button>
+                  </form>
+                </div>
+              )}
+              {agreement.status === "changes_requested" && isAcceptedFreelancer && (
+                <p className="text-sm text-muted-foreground">Waiting for the client to update the agreement.</p>
+              )}
+            </div>
+          )}
+          {(!agreement || agreement.status === "changes_requested") && isClient && !agreementLoading && (
+            <form onSubmit={saveAgreement} className="space-y-3 rounded-lg border border-border p-4">
+              <label className="block text-sm font-medium text-foreground">Deliverables and scope *
+                <textarea required minLength={20} maxLength={5000} rows={5} value={agreementScope} onChange={(event) => setAgreementScope(event.target.value)} placeholder="List what will be delivered, what is included, and any important acceptance criteria." className="mt-1.5 w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm" />
+              </label>
+              <label className="block max-w-xs text-sm font-medium text-foreground">Agreed deadline *
+                <input required type="date" min={new Date().toISOString().slice(0, 10)} value={agreementDeadline} onChange={(event) => setAgreementDeadline(event.target.value)} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm" />
+              </label>
+              <p className="text-sm text-muted-foreground">Accepted proposal amount: <strong className="text-foreground">{acceptedAmount == null ? "Loading…" : `₵${acceptedAmount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</strong>. The payment amount is fixed to the accepted bid.</p>
+              <button type="submit" disabled={agreementBusy || agreementScope.trim().length < 20 || !agreementDeadline} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                {agreementBusy ? "Saving…" : agreement ? "Send updated agreement" : "Send agreement for confirmation"}
+              </button>
+            </form>
+          )}
+          {!agreement && isAcceptedFreelancer && !agreementLoading && (
+            <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">The client is preparing the deliverables and deadline. You’ll be able to review the agreement here before payment begins.</p>
+          )}
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            {agreement?.status === "confirmed" && isClient && <p><Link to={fundingHref} className="font-semibold text-primary underline underline-offset-2">Fund accepted proposal</Link> through Paystack.</p>}
+            {isClient && <button type="button" onClick={() => void cancelHire()} disabled={busy} className="text-sm font-medium text-destructive underline underline-offset-2 disabled:opacity-50">Cancel hire</button>}
+          </div>
         </div>
       )}
       {jobStatus === "payment_pending" && isClient && (

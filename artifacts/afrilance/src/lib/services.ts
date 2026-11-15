@@ -37,6 +37,11 @@ export interface ServiceListing {
   isVerified: boolean;
   createdAt: string;
   providerName: string;
+  providerProfileId: number;
+  providerIsVerified: boolean;
+  providerCompletedJobs: number;
+  providerAvgRating: number | null;
+  providerTotalReviews: number;
   providerAvatarUrl?: string | null;
   portfolioImages: ServicePortfolioImage[];
   distanceKm?: number | null;

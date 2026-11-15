@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { BadgeCheck, MapPin, MessageCircle } from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, Star } from "lucide-react";
 import { Link } from "wouter";
 import { formatCurrency } from "@/lib/format";
 import { serviceImageUrl, type ServiceListing } from "@/lib/services";
 import { ServiceContactOptions } from "@/components/ServiceContactOptions";
+import { TrustReportAction } from "@/components/TrustReportAction";
 
 export function ServiceCard({ service }: { service: ServiceListing }) {
   const [contactOpen, setContactOpen] = useState(false);
@@ -31,13 +32,29 @@ export function ServiceCard({ service }: { service: ServiceListing }) {
               {service.title}
             </Link>
           </div>
-          {service.isVerified && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-              <BadgeCheck className="size-4" aria-hidden="true" /> Verified
-            </span>
-          )}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {service.isVerified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                <BadgeCheck className="size-4" aria-hidden="true" /> Listing verified
+              </span>
+            )}
+            {service.providerIsVerified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                <BadgeCheck className="size-4" aria-hidden="true" /> Identity verified
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">by {service.providerName}</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>{service.providerCompletedJobs} completed {service.providerCompletedJobs === 1 ? "job" : "jobs"}</span>
+          {service.providerTotalReviews > 0 ? (
+            <span className="inline-flex items-center gap-1">
+              <Star className="size-3.5 fill-amber-400 text-amber-500" aria-hidden="true" />
+              {Number(service.providerAvgRating).toFixed(1)} ({service.providerTotalReviews} {service.providerTotalReviews === 1 ? "review" : "reviews"})
+            </span>
+          ) : <span>No reviews yet</span>}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
             <MapPin className="size-4" aria-hidden="true" /> {service.city}, {service.region}
@@ -63,6 +80,9 @@ export function ServiceCard({ service }: { service: ServiceListing }) {
             <ServiceContactOptions service={service} />
           </div>
         )}
+        <div className="flex justify-end border-t border-border pt-3">
+          <TrustReportAction target="service" targetId={service.id} targetName={service.title} ownerUserId={service.userId} />
+        </div>
       </div>
     </article>
   );

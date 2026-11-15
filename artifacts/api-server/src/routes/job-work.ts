@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { Readable } from "node:stream";
 import {
@@ -10,6 +10,7 @@ import {
   notificationsTable,
   paymentsTable,
   profilesTable,
+  projectAgreementsTable,
   proposalsTable,
 } from "@workspace/db";
 import { z } from "zod";
@@ -17,6 +18,11 @@ import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 const objectStorage = new ObjectStorageService();
+
+function validJobId(value: string): number | null {
+  const jobId = Number(value);
+  return Number.isInteger(jobId) && jobId > 0 ? jobId : null;
+}
 
 async function getParticipant(userId: string, jobId: number) {
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
@@ -32,6 +38,177 @@ async function getParticipant(userId: string, jobId: number) {
   if (!acceptedProposal) return null;
   return { profile, job, role: "freelancer" as const };
 }
+
+router.get("/jobs/:jobId/agreement", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const jobId = validJobId(req.params.jobId);
+  if (jobId === null) { res.status(400).json({ error: "Invalid job ID" }); return; }
+
+  const access = await getParticipant(userId, jobId);
+  if (!access) { res.status(404).json({ error: "Project not found" }); return; }
+  const [acceptedProposal] = await db.select({
+    id: proposalsTable.id,
+    freelancerId: proposalsTable.freelancerId,
+    bidAmount: proposalsTable.bidAmount,
+  }).from(proposalsTable).where(and(
+    eq(proposalsTable.jobId, jobId),
+    eq(proposalsTable.status, "accepted"),
+  )).limit(1);
+  if (!acceptedProposal) {
+    res.status(409).json({ error: "Accept a proposal before creating a project agreement" });
+    return;
+  }
+
+  const [agreement] = await db.select().from(projectAgreementsTable)
+    .where(eq(projectAgreementsTable.jobId, jobId)).limit(1);
+  res.json({
+    agreement: agreement ?? null,
+    acceptedAmount: acceptedProposal.bidAmount,
+  });
+});
+
+router.put("/jobs/:jobId/agreement", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const jobId = validJobId(req.params.jobId);
+  if (jobId === null) { res.status(400).json({ error: "Invalid job ID" }); return; }
+  const parsed = z.object({
+    scope: z.string().trim().min(20).max(5000),
+    deadline: z.string().date().refine(
+      (value) => value >= new Date().toISOString().slice(0, 10),
+      "Deadline must be today or later",
+    ),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Provide clear deliverables and a valid deadline" }); return; }
+
+  const access = await getParticipant(userId, jobId);
+  if (!access || access.role !== "client") { res.status(404).json({ error: "Project not found" }); return; }
+  if (access.job.status !== "awaiting_funding") {
+    res.status(409).json({ error: "The project agreement can only be set before funding begins" });
+    return;
+  }
+  const [acceptedProposal] = await db.select().from(proposalsTable).where(and(
+    eq(proposalsTable.jobId, jobId),
+    eq(proposalsTable.status, "accepted"),
+  )).limit(1);
+  if (!acceptedProposal) { res.status(409).json({ error: "Accept a proposal before creating a project agreement" }); return; }
+  const [existing] = await db.select().from(projectAgreementsTable)
+    .where(eq(projectAgreementsTable.jobId, jobId)).limit(1);
+  if (existing?.status === "confirmed") {
+    res.status(409).json({ error: "The project agreement is already confirmed and cannot be changed" });
+    return;
+  }
+
+  const agreementValues = {
+    proposalId: acceptedProposal.id,
+    clientId: access.profile.id,
+    freelancerId: acceptedProposal.freelancerId,
+    scope: parsed.data.scope,
+    deadline: parsed.data.deadline,
+    amount: acceptedProposal.bidAmount,
+    status: "pending_freelancer",
+    changeRequest: null,
+    updatedAt: new Date(),
+  };
+  const [agreement] = await db.insert(projectAgreementsTable).values({
+    jobId,
+    ...agreementValues,
+  }).onConflictDoUpdate({
+    target: projectAgreementsTable.jobId,
+    set: agreementValues,
+    setWhere: ne(projectAgreementsTable.status, "confirmed"),
+  }).returning();
+  if (!agreement) {
+    res.status(409).json({ error: "The project agreement was confirmed before this update. It can no longer be changed." });
+    return;
+  }
+
+  await db.insert(notificationsTable).values({
+    userId: acceptedProposal.freelancerId,
+    type: "project_agreement",
+    title: "Project scope ready for your agreement",
+    body: `Review the deliverables, deadline, and payment amount for "${access.job.title}" before the client funds the project.`,
+    relatedId: jobId,
+    relatedType: "job",
+  });
+  res.json({ agreement });
+});
+
+router.post("/jobs/:jobId/agreement/confirm", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const jobId = validJobId(req.params.jobId);
+  if (jobId === null) { res.status(400).json({ error: "Invalid job ID" }); return; }
+
+  const access = await getParticipant(userId, jobId);
+  if (!access || access.role !== "freelancer") { res.status(404).json({ error: "Project not found" }); return; }
+  if (access.job.status !== "awaiting_funding") {
+    res.status(409).json({ error: "The project agreement can only be confirmed before funding begins" });
+    return;
+  }
+
+  const [agreement] = await db.update(projectAgreementsTable)
+    .set({ status: "confirmed", changeRequest: null, updatedAt: new Date() })
+    .where(and(
+      eq(projectAgreementsTable.jobId, jobId),
+      eq(projectAgreementsTable.freelancerId, access.profile.id),
+      eq(projectAgreementsTable.status, "pending_freelancer"),
+    ))
+    .returning();
+  if (!agreement) {
+    res.status(409).json({ error: "There is no project agreement awaiting your confirmation" });
+    return;
+  }
+
+  await db.insert(notificationsTable).values({
+    userId: agreement.clientId,
+    type: "project_agreement_confirmed",
+    title: "Project scope confirmed",
+    body: `The freelancer confirmed the deliverables and deadline for "${access.job.title}". You can now fund the project.`,
+    relatedId: jobId,
+    relatedType: "job",
+  });
+  res.json({ agreement });
+});
+
+router.post("/jobs/:jobId/agreement/request-changes", async (req, res): Promise<void> => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const jobId = validJobId(req.params.jobId);
+  if (jobId === null) { res.status(400).json({ error: "Invalid job ID" }); return; }
+  const parsed = z.object({ note: z.string().trim().min(5).max(2000) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Explain what needs to change in the agreement" }); return; }
+
+  const access = await getParticipant(userId, jobId);
+  if (!access || access.role !== "freelancer") { res.status(404).json({ error: "Project not found" }); return; }
+  if (access.job.status !== "awaiting_funding") {
+    res.status(409).json({ error: "The project agreement can only be changed before funding begins" });
+    return;
+  }
+  const [agreement] = await db.update(projectAgreementsTable)
+    .set({ status: "changes_requested", changeRequest: parsed.data.note, updatedAt: new Date() })
+    .where(and(
+      eq(projectAgreementsTable.jobId, jobId),
+      eq(projectAgreementsTable.freelancerId, access.profile.id),
+      eq(projectAgreementsTable.status, "pending_freelancer"),
+    ))
+    .returning();
+  if (!agreement) {
+    res.status(409).json({ error: "There is no project agreement awaiting your review" });
+    return;
+  }
+
+  await db.insert(notificationsTable).values({
+    userId: agreement.clientId,
+    type: "project_agreement_changes",
+    title: "Changes requested to project scope",
+    body: `The freelancer requested changes to the agreement for "${access.job.title}". Review their note before funding the project.`,
+    relatedId: jobId,
+    relatedType: "job",
+  });
+  res.json({ agreement });
+});
 
 router.post("/jobs/:jobId/cancel-hire", async (req, res): Promise<void> => {
   const userId = getAuth(req)?.userId;

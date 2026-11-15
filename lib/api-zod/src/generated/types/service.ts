@@ -31,6 +31,12 @@ export interface Service {
   isVerified: boolean;
   createdAt: Date;
   providerName: string;
+  providerProfileId?: number;
+  providerIsVerified?: boolean;
+  providerCompletedJobs?: number;
+  /** @nullable */
+  providerAvgRating?: number | null;
+  providerTotalReviews?: number;
   /** @nullable */
   providerAvatarUrl?: string | null;
   portfolioImages: ServicePortfolioImage[];

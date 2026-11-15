@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SkillBadge } from "@/components/SkillBadge";
 import { StarRating } from "@/components/StarRating";
 import { UserAvatar } from "@/components/UserAvatar";
+import { TrustReportAction } from "@/components/TrustReportAction";
 import { formatRelative } from "@/lib/format";
 import { Show } from "@clerk/react";
 import { VerifiedBadge, TopRatedBadge } from "./freelancers";
@@ -108,6 +109,7 @@ export default function FreelancerProfilePage() {
                       </p>
                     )}
                   </div>
+                  <TrustReportAction target="profile" targetId={profile.id} targetName={profile.name} ownerUserId={profile.userId} />
                 </div>
               </div>
 
@@ -129,11 +131,14 @@ export default function FreelancerProfilePage() {
                 <div className="px-3">
                   <div className="flex items-center gap-1.5 font-bold text-foreground">
                     <ShieldCheck className="size-4 text-primary" />
-                    {profile.isVerified ? "Verified" : "Pending"}
+                    {profile.isVerified ? "Verified" : profile.verificationStatus === "pending" ? "Pending" : "Not verified"}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">Identity status</p>
                 </div>
               </div>
+              <p className="mt-4 text-xs text-muted-foreground">
+                Have a safety concern? <a href="/support" className="font-medium text-primary underline underline-offset-4">Contact support</a>.
+              </p>
 
               {profile.bio && (
                 <div className="pt-5">

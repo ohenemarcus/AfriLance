@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { ensureMessagingSchema } from "./lib/ensureMessagingSchema";
 import { ensureNotificationEmailSchema } from "./lib/ensureNotificationEmailSchema";
 import { ensurePayoutSchema } from "./lib/ensurePayoutSchema";
+import { ensureProjectAgreementSchema } from "./lib/ensureProjectAgreementSchema";
 import { startNotificationEmailWorker } from "./lib/notificationEmail";
 
 const rawPort = process.env["PORT"] ?? "8080";
@@ -16,6 +17,7 @@ async function startServer() {
   await ensureMessagingSchema();
   await ensureNotificationEmailSchema();
   await ensurePayoutSchema();
+  await ensureProjectAgreementSchema();
 
   app.listen(port, (err) => {
     if (err) {

@@ -205,6 +205,28 @@ export const GetProfileResponse = zod.object({
 
 
 /**
+ * @summary Report a public profile to the moderation team
+ */
+
+
+
+export const ReportProfileParams = zod.object({
+  "profileId": zod.coerce.number().min(1)
+})
+
+export const reportProfileBodyDetailsMax = 1000;
+
+
+
+export const ReportProfileBody = zod.object({
+  "reason": zod.enum(['suspicious', 'harassment', 'misleading', 'other']),
+  "details": zod.string().max(reportProfileBodyDetailsMax).optional()
+})
+
+export const ReportProfileResponse = zod.void()
+
+
+/**
  * @summary List freelancer profiles with filters
  */
 export const ListFreelancersQueryParams = zod.object({
@@ -318,6 +340,11 @@ export const ListServicesResponse = zod.object({
   "isVerified": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "providerName": zod.string(),
+  "providerProfileId": zod.number().optional(),
+  "providerIsVerified": zod.boolean().optional(),
+  "providerCompletedJobs": zod.number().optional(),
+  "providerAvgRating": zod.number().nullish(),
+  "providerTotalReviews": zod.number().optional(),
   "providerAvatarUrl": zod.string().nullish(),
   "portfolioImages": zod.array(zod.object({
   "id": zod.number(),
@@ -409,6 +436,11 @@ export const ListMyServicesResponse = zod.object({
   "isVerified": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "providerName": zod.string(),
+  "providerProfileId": zod.number().optional(),
+  "providerIsVerified": zod.boolean().optional(),
+  "providerCompletedJobs": zod.number().optional(),
+  "providerAvgRating": zod.number().nullish(),
+  "providerTotalReviews": zod.number().optional(),
   "providerAvatarUrl": zod.string().nullish(),
   "portfolioImages": zod.array(zod.object({
   "id": zod.number(),
@@ -450,6 +482,11 @@ export const GetServiceResponse = zod.object({
   "isVerified": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "providerName": zod.string(),
+  "providerProfileId": zod.number().optional(),
+  "providerIsVerified": zod.boolean().optional(),
+  "providerCompletedJobs": zod.number().optional(),
+  "providerAvgRating": zod.number().nullish(),
+  "providerTotalReviews": zod.number().optional(),
   "providerAvatarUrl": zod.string().nullish(),
   "portfolioImages": zod.array(zod.object({
   "id": zod.number(),
@@ -471,6 +508,28 @@ export const DeleteServiceParams = zod.object({
 })
 
 export const DeleteServiceResponse = zod.void()
+
+
+/**
+ * @summary Report a local-service listing to the moderation team
+ */
+
+
+
+export const ReportServiceListingParams = zod.object({
+  "serviceId": zod.coerce.number().min(1)
+})
+
+export const reportServiceListingBodyDetailsMax = 1000;
+
+
+
+export const ReportServiceListingBody = zod.object({
+  "reason": zod.enum(['suspicious', 'harassment', 'misleading', 'other']),
+  "details": zod.string().max(reportServiceListingBodyDetailsMax).optional()
+})
+
+export const ReportServiceListingResponse = zod.void()
 
 
 /**
@@ -647,6 +706,93 @@ export const DeleteJobParams = zod.object({
 })
 
 export const DeleteJobResponse = zod.void()
+
+
+/**
+ * @summary Get the agreement for the accepted project participants
+ */
+
+
+
+export const GetProjectAgreementParams = zod.object({
+  "jobId": zod.coerce.number().min(1)
+})
+
+export const GetProjectAgreementResponse = zod.object({
+  "agreement": zod.union([zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "proposalId": zod.number(),
+  "clientId": zod.number(),
+  "freelancerId": zod.number(),
+  "scope": zod.string(),
+  "deadline": zod.coerce.date(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending_freelancer', 'changes_requested', 'confirmed']),
+  "changeRequest": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "acceptedAmount": zod.number()
+})
+
+
+/**
+ * @summary Set or update the project scope and deadline for freelancer confirmation
+ */
+
+
+
+export const SaveProjectAgreementParams = zod.object({
+  "jobId": zod.coerce.number().min(1)
+})
+
+export const saveProjectAgreementBodyScopeMin = 20;
+export const saveProjectAgreementBodyScopeMax = 5000;
+
+
+
+export const SaveProjectAgreementBody = zod.object({
+  "scope": zod.string().min(saveProjectAgreementBodyScopeMin).max(saveProjectAgreementBodyScopeMax),
+  "deadline": zod.coerce.date()
+})
+
+export const SaveProjectAgreementResponse = zod.unknown()
+
+
+/**
+ * @summary Confirm the proposed project scope and deadline as the accepted freelancer
+ */
+
+
+
+export const ConfirmProjectAgreementParams = zod.object({
+  "jobId": zod.coerce.number().min(1)
+})
+
+export const ConfirmProjectAgreementResponse = zod.unknown()
+
+
+/**
+ * @summary Request changes to the proposed agreement as the accepted freelancer
+ */
+
+
+
+export const RequestProjectAgreementChangesParams = zod.object({
+  "jobId": zod.coerce.number().min(1)
+})
+
+export const requestProjectAgreementChangesBodyNoteMin = 5;
+export const requestProjectAgreementChangesBodyNoteMax = 2000;
+
+
+
+export const RequestProjectAgreementChangesBody = zod.object({
+  "note": zod.string().min(requestProjectAgreementChangesBodyNoteMin).max(requestProjectAgreementChangesBodyNoteMax)
+})
+
+export const RequestProjectAgreementChangesResponse = zod.unknown()
 
 
 /**

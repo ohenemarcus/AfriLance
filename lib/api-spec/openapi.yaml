@@ -102,6 +102,33 @@ paths:
                 $ref: "#/components/schemas/Profile"
         "404":
           description: Not found
+  /profiles/{profileId}/reports:
+    post:
+      operationId: reportProfile
+      tags: [profiles]
+      summary: Report a public profile to the moderation team
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrustReportBody"
+      responses:
+        "201":
+          description: Report submitted
+        "400":
+          description: Invalid report or reporting your own profile
+        "401":
+          description: Authentication required
+        "404":
+          description: Profile not found
 
   /profiles/freelancers:
     get:
@@ -298,6 +325,33 @@ paths:
           description: Authentication required
         "404":
           description: Service not found or not owned by current user
+  /services/{serviceId}/reports:
+    post:
+      operationId: reportServiceListing
+      tags: [services]
+      summary: Report a local-service listing to the moderation team
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrustReportBody"
+      responses:
+        "201":
+          description: Report submitted
+        "400":
+          description: Invalid report or reporting your own listing
+        "401":
+          description: Authentication required
+        "404":
+          description: Service listing not found
 
   /services/{id}/location:
     parameters:
@@ -488,6 +542,122 @@ paths:
           description: Deleted
         "409":
           description: The job already has proposals
+
+  /jobs/{jobId}/agreement:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      operationId: getProjectAgreement
+      tags: [jobs]
+      summary: Get the agreement for the accepted project participants
+      responses:
+        "200":
+          description: Current agreement and accepted bid amount
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agreement:
+                    oneOf:
+                      - $ref: "#/components/schemas/ProjectAgreement"
+                      - type: "null"
+                  acceptedAmount:
+                    type: number
+                required: [agreement, acceptedAmount]
+        "401":
+          description: Authentication required
+        "404":
+          description: Project not found
+    put:
+      operationId: saveProjectAgreement
+      tags: [jobs]
+      summary: Set or update the project scope and deadline for freelancer confirmation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scope:
+                  type: string
+                  minLength: 20
+                  maxLength: 5000
+                deadline:
+                  type: string
+                  format: date
+              required: [scope, deadline]
+      responses:
+        "200":
+          description: Agreement sent for confirmation
+        "400":
+          description: Invalid scope or deadline
+        "401":
+          description: Authentication required
+        "409":
+          description: Agreement can no longer be changed
+
+  /jobs/{jobId}/agreement/confirm:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: confirmProjectAgreement
+      tags: [jobs]
+      summary: Confirm the proposed project scope and deadline as the accepted freelancer
+      responses:
+        "200":
+          description: Agreement confirmed by both parties
+        "401":
+          description: Authentication required
+        "404":
+          description: Project not found
+        "409":
+          description: No agreement is awaiting confirmation
+
+  /jobs/{jobId}/agreement/request-changes:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: requestProjectAgreementChanges
+      tags: [jobs]
+      summary: Request changes to the proposed agreement as the accepted freelancer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+              required: [note]
+      responses:
+        "200":
+          description: Requested changes sent to the client
+        "401":
+          description: Authentication required
+        "404":
+          description: Project not found
+        "409":
+          description: Agreement is not awaiting review
 
   /jobs/{jobId}/submissions:
     get:
@@ -1932,6 +2102,39 @@ components:
             $ref: "#/components/schemas/JobWorkAttachment"
       required: [id, jobId, freelancerId, note, status, createdAt, updatedAt, attachments]
 
+    ProjectAgreement:
+      type: object
+      properties:
+        id:
+          type: integer
+        jobId:
+          type: integer
+        proposalId:
+          type: integer
+        clientId:
+          type: integer
+        freelancerId:
+          type: integer
+        scope:
+          type: string
+        deadline:
+          type: string
+          format: date
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending_freelancer, changes_requested, confirmed]
+        changeRequest:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, jobId, proposalId, clientId, freelancerId, scope, deadline, amount, status, createdAt, updatedAt]
+
     SubmitJobWorkBody:
       type: object
       properties:
@@ -2189,6 +2392,17 @@ components:
         isTyping:
           type: boolean
       required: [isTyping]
+
+    TrustReportBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum: [suspicious, harassment, misleading, other]
+        details:
+          type: string
+          maxLength: 1000
+      required: [reason]
 
     ReportMessageBody:
       type: object
@@ -2911,6 +3125,16 @@ components:
           format: date-time
         providerName:
           type: string
+        providerProfileId:
+          type: integer
+        providerIsVerified:
+          type: boolean
+        providerCompletedJobs:
+          type: integer
+        providerAvgRating:
+          type: ["number", "null"]
+        providerTotalReviews:
+          type: integer
         providerAvatarUrl:
           type: ["string", "null"]
         portfolioImages:

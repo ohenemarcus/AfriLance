@@ -47,6 +47,7 @@ import type {
   FreelancerListResponse,
   GetAdminAuditLogsParams,
   GetConversationMessagesParams,
+  GetProjectAgreement200,
   HealthStatus,
   InitializePaymentResponse,
   Job,
@@ -74,6 +75,7 @@ import type {
   ReportMessage201,
   ReportMessageBody,
   ReportUserBody,
+  RequestProjectAgreementChangesBody,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RequestWorkRevisionBody,
@@ -82,12 +84,14 @@ import type {
   Review,
   ReviewListResponse,
   SaveJobBody,
+  SaveProjectAgreementBody,
   SavedJob,
   SavedJobListResponse,
   SendMessageBody,
   Service,
   ServiceListResponse,
   SubmitJobWorkBody,
+  TrustReportBody,
   TypingStatus,
   UnblockConversationUser200,
   UpdateConversationMute200,
@@ -412,6 +416,77 @@ export function useGetProfile<TData = Awaited<ReturnType<typeof getProfile>>, TE
 
 
 
+
+export const getReportProfileUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/reports`
+}
+
+/**
+ * @summary Report a public profile to the moderation team
+ */
+export const reportProfile = async (profileId: number,
+    trustReportBody: TrustReportBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getReportProfileUrl(profileId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trustReportBody)
+  }
+);}
+
+
+
+
+export const getReportProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportProfile>>, TError,{profileId: number;data: BodyType<TrustReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportProfile>>, TError,{profileId: number;data: BodyType<TrustReportBody>}, TContext> => {
+
+const mutationKey = ['reportProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportProfile>>, {profileId: number;data: BodyType<TrustReportBody>}> = (props) => {
+          const {profileId,data} = props ?? {};
+
+          return  reportProfile(profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportProfileMutationResult = NonNullable<Awaited<ReturnType<typeof reportProfile>>>
+    export type ReportProfileMutationBody = BodyType<TrustReportBody>
+    export type ReportProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Report a public profile to the moderation team
+ */
+export const useReportProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportProfile>>, TError,{profileId: number;data: BodyType<TrustReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportProfile>>,
+        TError,
+        {profileId: number;data: BodyType<TrustReportBody>},
+        TContext
+      > => {
+      return useMutation(getReportProfileMutationOptions(options));
+    }
 
 export const getListFreelancersUrl = (params?: ListFreelancersParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -875,6 +950,77 @@ export const useDeleteService = <TError = ErrorType<void>,
       return useMutation(getDeleteServiceMutationOptions(options));
     }
 
+export const getReportServiceListingUrl = (serviceId: number,) => {
+
+
+
+
+  return `/api/services/${serviceId}/reports`
+}
+
+/**
+ * @summary Report a local-service listing to the moderation team
+ */
+export const reportServiceListing = async (serviceId: number,
+    trustReportBody: TrustReportBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getReportServiceListingUrl(serviceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trustReportBody)
+  }
+);}
+
+
+
+
+export const getReportServiceListingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportServiceListing>>, TError,{serviceId: number;data: BodyType<TrustReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportServiceListing>>, TError,{serviceId: number;data: BodyType<TrustReportBody>}, TContext> => {
+
+const mutationKey = ['reportServiceListing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportServiceListing>>, {serviceId: number;data: BodyType<TrustReportBody>}> = (props) => {
+          const {serviceId,data} = props ?? {};
+
+          return  reportServiceListing(serviceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportServiceListingMutationResult = NonNullable<Awaited<ReturnType<typeof reportServiceListing>>>
+    export type ReportServiceListingMutationBody = BodyType<TrustReportBody>
+    export type ReportServiceListingMutationError = ErrorType<void>
+
+    /**
+ * @summary Report a local-service listing to the moderation team
+ */
+export const useReportServiceListing = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportServiceListing>>, TError,{serviceId: number;data: BodyType<TrustReportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportServiceListing>>,
+        TError,
+        {serviceId: number;data: BodyType<TrustReportBody>},
+        TContext
+      > => {
+      return useMutation(getReportServiceListingMutationOptions(options));
+    }
+
 export const getUpdateServiceLocationUrl = (id: number,) => {
 
 
@@ -1317,6 +1463,295 @@ export const useDeleteJob = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteJobMutationOptions(options));
+    }
+
+export const getGetProjectAgreementUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/agreement`
+}
+
+/**
+ * @summary Get the agreement for the accepted project participants
+ */
+export const getProjectAgreement = async (jobId: number, options?: RequestInit): Promise<GetProjectAgreement200> => {
+
+  return customFetch<GetProjectAgreement200>(getGetProjectAgreementUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProjectAgreementQueryKey = (jobId: number,) => {
+    return [
+    `/api/jobs/${jobId}/agreement`
+    ] as const;
+    }
+
+
+export const getGetProjectAgreementQueryOptions = <TData = Awaited<ReturnType<typeof getProjectAgreement>>, TError = ErrorType<void>>(jobId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectAgreement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectAgreementQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectAgreement>>> = ({ signal }) => getProjectAgreement(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectAgreement>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectAgreementQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectAgreement>>>
+export type GetProjectAgreementQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the agreement for the accepted project participants
+ */
+
+export function useGetProjectAgreement<TData = Awaited<ReturnType<typeof getProjectAgreement>>, TError = ErrorType<void>>(
+ jobId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectAgreement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProjectAgreementQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSaveProjectAgreementUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/agreement`
+}
+
+/**
+ * @summary Set or update the project scope and deadline for freelancer confirmation
+ */
+export const saveProjectAgreement = async (jobId: number,
+    saveProjectAgreementBody: SaveProjectAgreementBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSaveProjectAgreementUrl(jobId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(saveProjectAgreementBody)
+  }
+);}
+
+
+
+
+export const getSaveProjectAgreementMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProjectAgreement>>, TError,{jobId: number;data: BodyType<SaveProjectAgreementBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveProjectAgreement>>, TError,{jobId: number;data: BodyType<SaveProjectAgreementBody>}, TContext> => {
+
+const mutationKey = ['saveProjectAgreement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveProjectAgreement>>, {jobId: number;data: BodyType<SaveProjectAgreementBody>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  saveProjectAgreement(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveProjectAgreementMutationResult = NonNullable<Awaited<ReturnType<typeof saveProjectAgreement>>>
+    export type SaveProjectAgreementMutationBody = BodyType<SaveProjectAgreementBody>
+    export type SaveProjectAgreementMutationError = ErrorType<void>
+
+    /**
+ * @summary Set or update the project scope and deadline for freelancer confirmation
+ */
+export const useSaveProjectAgreement = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProjectAgreement>>, TError,{jobId: number;data: BodyType<SaveProjectAgreementBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveProjectAgreement>>,
+        TError,
+        {jobId: number;data: BodyType<SaveProjectAgreementBody>},
+        TContext
+      > => {
+      return useMutation(getSaveProjectAgreementMutationOptions(options));
+    }
+
+export const getConfirmProjectAgreementUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/agreement/confirm`
+}
+
+/**
+ * @summary Confirm the proposed project scope and deadline as the accepted freelancer
+ */
+export const confirmProjectAgreement = async (jobId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getConfirmProjectAgreementUrl(jobId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getConfirmProjectAgreementMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmProjectAgreement>>, TError,{jobId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmProjectAgreement>>, TError,{jobId: number}, TContext> => {
+
+const mutationKey = ['confirmProjectAgreement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmProjectAgreement>>, {jobId: number}> = (props) => {
+          const {jobId} = props ?? {};
+
+          return  confirmProjectAgreement(jobId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmProjectAgreementMutationResult = NonNullable<Awaited<ReturnType<typeof confirmProjectAgreement>>>
+
+    export type ConfirmProjectAgreementMutationError = ErrorType<void>
+
+    /**
+ * @summary Confirm the proposed project scope and deadline as the accepted freelancer
+ */
+export const useConfirmProjectAgreement = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmProjectAgreement>>, TError,{jobId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmProjectAgreement>>,
+        TError,
+        {jobId: number},
+        TContext
+      > => {
+      return useMutation(getConfirmProjectAgreementMutationOptions(options));
+    }
+
+export const getRequestProjectAgreementChangesUrl = (jobId: number,) => {
+
+
+
+
+  return `/api/jobs/${jobId}/agreement/request-changes`
+}
+
+/**
+ * @summary Request changes to the proposed agreement as the accepted freelancer
+ */
+export const requestProjectAgreementChanges = async (jobId: number,
+    requestProjectAgreementChangesBody: RequestProjectAgreementChangesBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRequestProjectAgreementChangesUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(requestProjectAgreementChangesBody)
+  }
+);}
+
+
+
+
+export const getRequestProjectAgreementChangesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestProjectAgreementChanges>>, TError,{jobId: number;data: BodyType<RequestProjectAgreementChangesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestProjectAgreementChanges>>, TError,{jobId: number;data: BodyType<RequestProjectAgreementChangesBody>}, TContext> => {
+
+const mutationKey = ['requestProjectAgreementChanges'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestProjectAgreementChanges>>, {jobId: number;data: BodyType<RequestProjectAgreementChangesBody>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  requestProjectAgreementChanges(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestProjectAgreementChangesMutationResult = NonNullable<Awaited<ReturnType<typeof requestProjectAgreementChanges>>>
+    export type RequestProjectAgreementChangesMutationBody = BodyType<RequestProjectAgreementChangesBody>
+    export type RequestProjectAgreementChangesMutationError = ErrorType<void>
+
+    /**
+ * @summary Request changes to the proposed agreement as the accepted freelancer
+ */
+export const useRequestProjectAgreementChanges = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestProjectAgreementChanges>>, TError,{jobId: number;data: BodyType<RequestProjectAgreementChangesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestProjectAgreementChanges>>,
+        TError,
+        {jobId: number;data: BodyType<RequestProjectAgreementChangesBody>},
+        TContext
+      > => {
+      return useMutation(getRequestProjectAgreementChangesMutationOptions(options));
     }
 
 export const getListJobWorkSubmissionsUrl = (jobId: number,) => {

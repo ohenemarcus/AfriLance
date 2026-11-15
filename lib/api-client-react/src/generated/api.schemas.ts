@@ -244,6 +244,31 @@ export interface JobWorkSubmission {
   attachments: JobWorkAttachment[];
 }
 
+export type ProjectAgreementStatus = typeof ProjectAgreementStatus[keyof typeof ProjectAgreementStatus];
+
+
+export const ProjectAgreementStatus = {
+  pending_freelancer: 'pending_freelancer',
+  changes_requested: 'changes_requested',
+  confirmed: 'confirmed',
+} as const;
+
+export interface ProjectAgreement {
+  id: number;
+  jobId: number;
+  proposalId: number;
+  clientId: number;
+  freelancerId: number;
+  scope: string;
+  deadline: string;
+  amount: number;
+  status: ProjectAgreementStatus;
+  /** @nullable */
+  changeRequest?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SubmitJobWorkBodyAttachmentsItem = {
   objectPath: string;
   fileName: string;
@@ -381,6 +406,22 @@ export interface SendMessageBody {
 
 export interface TypingStatus {
   isTyping: boolean;
+}
+
+export type TrustReportBodyReason = typeof TrustReportBodyReason[keyof typeof TrustReportBodyReason];
+
+
+export const TrustReportBodyReason = {
+  suspicious: 'suspicious',
+  harassment: 'harassment',
+  misleading: 'misleading',
+  other: 'other',
+} as const;
+
+export interface TrustReportBody {
+  reason: TrustReportBodyReason;
+  /** @maxLength 1000 */
+  details?: string;
 }
 
 export interface ReportMessageBody {
@@ -768,6 +809,12 @@ export interface Service {
   isVerified: boolean;
   createdAt: string;
   providerName: string;
+  providerProfileId?: number;
+  providerIsVerified?: boolean;
+  providerCompletedJobs?: number;
+  /** @nullable */
+  providerAvgRating?: number | null;
+  providerTotalReviews?: number;
   /** @nullable */
   providerAvatarUrl?: string | null;
   portfolioImages: ServicePortfolioImage[];
@@ -964,6 +1011,28 @@ export const ListJobsSortBy = {
   budget_asc: 'budget_asc',
   budget_desc: 'budget_desc',
 } as const;
+
+export type GetProjectAgreement200 = {
+  agreement: ProjectAgreement | null;
+  acceptedAmount: number;
+};
+
+export type SaveProjectAgreementBody = {
+  /**
+     * @minLength 20
+     * @maxLength 5000
+     */
+  scope: string;
+  deadline: string;
+};
+
+export type RequestProjectAgreementChangesBody = {
+  /**
+     * @minLength 5
+     * @maxLength 2000
+     */
+  note: string;
+};
 
 export type ListJobWorkSubmissions200 = {
   submissions: JobWorkSubmission[];

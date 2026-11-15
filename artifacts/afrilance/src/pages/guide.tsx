@@ -25,7 +25,7 @@ const WORKFLOWS = {
     },
     {
       title: "Wait for acceptance and funding",
-      detail: "If a client accepts your proposal, the job moves to awaiting funding. Work only begins after the client’s payment is confirmed in escrow. Save your bank or Mobile Money payout method in Payments and verify it before the client releases payment, so payment can be sent without asking the client for your account details.",
+      detail: "If a client accepts your proposal, review the project deliverables, deadline, and accepted bid on the job page. Confirm the scope or request changes before the client funds the project. Work only begins after the agreed payment is confirmed in escrow. Save your bank or Mobile Money payout method in Payments and verify it before the client releases payment, so payment can be sent without asking the client for your account details.",
       href: "/proposals",
       action: "Track proposals",
     },
@@ -63,13 +63,13 @@ const WORKFLOWS = {
     },
     {
       title: "Review proposals and choose a freelancer",
-      detail: "Compare profiles, proposals, and skills from the job page or dashboard. Accept one freelancer for the project at a time.",
+      detail: "Compare profiles, proposals, and skills from the job page or dashboard. Accept one freelancer for the project at a time. Then write down the specific deliverables and deadline, using the accepted proposal amount as the agreed payment, and ask the freelancer to confirm.",
       href: "/dashboard",
       action: "View your dashboard",
     },
     {
       title: "Fund the accepted project",
-      detail: "Once a freelancer is accepted, the job moves to awaiting funding. Fund the project through Payments so the money is held in escrow before work begins.",
+      detail: "After the freelancer confirms the deliverables and deadline on the job page, fund the accepted proposal through Payments. The agreed amount is the accepted bid and is held in escrow before work begins.",
       href: "/payments",
       action: "Open payments",
     },

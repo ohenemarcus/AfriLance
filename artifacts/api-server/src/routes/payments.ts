@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, or, desc, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, paymentsTable, payoutMethodsTable, paymentStatusHistoryTable, profilesTable, jobsTable, proposalsTable, notificationsTable } from "@workspace/db";
+import { db, paymentsTable, payoutMethodsTable, paymentStatusHistoryTable, profilesTable, jobsTable, projectAgreementsTable, proposalsTable, notificationsTable } from "@workspace/db";
 import { z } from "zod";
 import {
   initializeTransaction,
@@ -278,6 +278,15 @@ router.post("/payments", async (req, res): Promise<void> => {
   }
   if (job.status !== "open" && job.status !== "awaiting_funding") {
     res.status(409).json({ error: "This project is not awaiting funding" });
+    return;
+  }
+  const [agreement] = await db.select().from(projectAgreementsTable).where(and(
+    eq(projectAgreementsTable.jobId, jobId),
+    eq(projectAgreementsTable.proposalId, acceptedProposal.id),
+    eq(projectAgreementsTable.status, "confirmed"),
+  )).limit(1);
+  if (!agreement) {
+    res.status(409).json({ error: "Both parties must confirm the project scope and deadline before funding" });
     return;
   }
   if (Math.abs(amount - acceptedProposal.bidAmount) > 0.01) {

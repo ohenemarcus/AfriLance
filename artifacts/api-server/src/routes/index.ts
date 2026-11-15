@@ -14,6 +14,7 @@ import adminRouter from "./admin";
 import disputesRouter from "./disputes";
 import jobWorkRouter from "./job-work";
 import servicesRouter from "./services";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(adminRouter);
 router.use(disputesRouter);
 router.use(jobWorkRouter);
 router.use(servicesRouter);
+router.use(reportsRouter);
 
 export default router;

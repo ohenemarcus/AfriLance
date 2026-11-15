@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, MapPin, MessageCircle, X } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, MapPin, MessageCircle, Star, X } from "lucide-react";
 import { ServiceContactOptions } from "@/components/ServiceContactOptions";
 import { getCurrentCoordinates, serviceImageUrl, serviceRequest, servicesApiUrl, type ServiceListing } from "@/lib/services";
 import { formatCurrency } from "@/lib/format";
+import { useListProfileReviews, getListProfileReviewsQueryKey } from "@workspace/api-client-react";
+import { TrustReportAction } from "@/components/TrustReportAction";
 
 export default function ServiceDetailPage() {
   const [location, setLocation] = useLocation();
   const { getToken, userId } = useAuth();
   const serviceId = Number(location.split("?")[0].split("/").pop());
   const [service, setService] = useState<ServiceListing | null>(null);
+  const { data: reviewsData } = useListProfileReviews(service?.providerProfileId ?? 0, {
+    query: {
+      enabled: !!service?.providerProfileId,
+      queryKey: getListProfileReviewsQueryKey(service?.providerProfileId ?? 0),
+    },
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
@@ -125,17 +133,57 @@ export default function ServiceDetailPage() {
           <div className="mt-8">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">{service.category}</span>
-              {service.isVerified && <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><BadgeCheck className="size-4" aria-hidden="true" /> Verified provider</span>}
+              {service.isVerified && <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><BadgeCheck className="size-4" aria-hidden="true" /> Verified listing</span>}
             </div>
             <h1 className="mt-3 text-3xl font-bold text-foreground sm:text-4xl">{service.title}</h1>
             <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><MapPin className="size-4" aria-hidden="true" /> {service.city}, {service.region}</p>
             <div className="prose prose-stone mt-7 max-w-none whitespace-pre-wrap text-foreground">{service.description}</div>
+            <section className="mt-8 rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Provider trust</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                    {service.providerIsVerified && <span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck className="size-4" aria-hidden="true" /> Identity verified</span>}
+                    <span>{service.providerCompletedJobs} completed {service.providerCompletedJobs === 1 ? "job" : "jobs"}</span>
+                    {service.providerTotalReviews > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="size-4 fill-amber-400 text-amber-500" aria-hidden="true" />
+                        {Number(service.providerAvgRating).toFixed(1)} ({service.providerTotalReviews} {service.providerTotalReviews === 1 ? "review" : "reviews"})
+                      </span>
+                    ) : <span>No reviews yet</span>}
+                  </div>
+                </div>
+                <Link to={`/freelancers/${service.providerProfileId}`} className="text-sm font-semibold text-primary underline-offset-4 hover:underline">View provider profile</Link>
+              </div>
+              {reviewsData?.reviews?.length ? (
+                <div className="mt-5 space-y-4 border-t border-border pt-4">
+                  <h2 className="text-sm font-semibold text-foreground">Recent client reviews</h2>
+                  {reviewsData.reviews.slice(0, 3).map((review) => (
+                    <article key={review.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-medium text-foreground">{review.reviewerName ?? "Anonymous"}</span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Star className="size-3.5 fill-amber-400 text-amber-500" aria-hidden="true" /> {review.rating}/5
+                        </span>
+                      </div>
+                      {review.comment && <p className="mt-1 text-sm leading-6 text-muted-foreground">{review.comment}</p>}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </section>
           </div>
         </div>
 
         <aside className="h-fit rounded-2xl border border-border bg-card p-6 lg:sticky lg:top-24">
           <p className="text-sm text-muted-foreground">Service by</p>
           <p className="mt-1 text-lg font-bold text-foreground">{service.providerName}</p>
+          <div className="mt-2">
+            <TrustReportAction target="service" targetId={service.id} targetName={service.title} ownerUserId={service.userId} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Safety concern? <a href="/support" className="font-medium text-primary underline underline-offset-4">Contact support</a>.
+          </p>
           <p className="mt-5 text-2xl font-bold text-primary">{price}</p>
           <button type="button" onClick={() => setContactOpen(true)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground hover:opacity-90">
             <MessageCircle className="size-5" aria-hidden="true" /> Contact provider

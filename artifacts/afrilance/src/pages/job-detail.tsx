@@ -358,10 +358,10 @@ export default function JobDetailPage() {
                             Message freelancer
                           </button>
                           <button
-                            onClick={() => setLocation(`/payments?jobId=${job.id}&freelancerId=${p.freelancerId}&amount=${p.bidAmount}&proposalId=${p.id}`)}
+                            onClick={() => document.getElementById("project-progress")?.scrollIntoView({ behavior: "smooth" })}
                             className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
                           >
-                            Fund project
+                            Agree scope & deadline
                           </button>
                         </div>
                       )}
